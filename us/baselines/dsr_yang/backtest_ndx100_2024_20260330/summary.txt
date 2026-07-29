@@ -1,0 +1,14 @@
+Yang 2018 IEEE DSR — Nasdaq 100 reproduction
+Trade period: 2024-01-02 ~ 2026-03-30
+Universe: 101 candidates → kept 95 in panel
+Rolling: 16Q train + 4Q validation → predict next 1Q
+Top 20% selection
+Initial capital: $1,000,000
+
+Metrics:
+method       final_$  return_%  sharpe  max_dd_%
+    EW 1,794,534.539    79.453   1.337   -26.196
+   MVO   855,877.681   -14.412  -0.014   -40.202
+MINVAR 1,306,179.764    30.618   0.874   -15.512
+  ^NDX 1,387,419.298    38.742   0.813   -22.932
+   DES 1,920,563.339    92.056   3.120    -8.032

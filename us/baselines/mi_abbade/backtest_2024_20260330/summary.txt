@@ -1,0 +1,19 @@
+Abbade & Costa 2026 MACE (Almgren-Chriss) — NDX 100 reproduction
+Trade period : 2024-01-02 ~ 2026-03-30
+Universe     : 85 tickers (static, FinRL cache)
+Agents       : ['a2c', 'ppo', 'ddpg', 'td3', 'sac'] (trained on 2015-2023 flat 10bps)
+AC params    : α=0.5  β=1.0  ε=5.0 bps  τ½=5.0 days
+Initial cap  : $1,000,000
+
+Metrics (per agent × cost model):
+agent cost_model       final_$  return_%  sharpe  max_dd_%  total_cost_$  trades
+  A2C   baseline 1,275,058.205    27.506   0.687   -17.577     1,034.864   20855
+  A2C         ac 1,274,732.945    27.473   0.686   -17.603       518.354     204
+  PPO   baseline 1,504,953.327    50.495   0.840   -26.711     1,868.081   20574
+  PPO         ac 1,466,929.552    46.693   0.800   -26.437       936.064    1907
+ DDPG   baseline 1,303,890.691    30.389   0.696   -17.945     1,037.091   24168
+ DDPG         ac 1,304,538.465    30.454   0.698   -17.928       521.137      48
+  TD3   baseline 1,174,507.754    17.451   0.482   -19.477     1,064.551   30912
+  TD3         ac 1,175,691.044    17.569   0.485   -19.481       534.105      50
+  SAC   baseline 1,259,609.442    25.961   0.599   -20.155       999.000   25290
+  SAC         ac 1,260,214.564    26.021   0.600   -20.160       509.257      92

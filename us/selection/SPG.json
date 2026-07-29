@@ -1,0 +1,18 @@
+{
+  "fundamental": [
+    "PE_trailing",
+    "PBR",
+    "DY",
+    "Gross",
+    "R_acc_yoy",
+    "E_qoq",
+    "E_yoy",
+    "E_acc_yoy",
+    "Op_qoq",
+    "Op_yoy",
+    "Op_acc_yoy",
+    "Gross_qoq",
+    "EPS_qoq",
+    "PEG"
+  ]
+}

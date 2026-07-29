@@ -1,0 +1,16 @@
+Yang 2018 IEEE DSR — S&P 100 reproduction
+Trade period: 2024-01-02 ~ 2026-03-30
+Universe: ['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'AMAT', 'AMD', 'AMGN', 'AMT', 'AMZN', 'AVGO', 'AXP', 'BA', 'BAC', 'BKNG', 'BLK', 'BMY', 'BNY', 'BRK.B', 'C', 'CAT', 'CL', 'CMCSA', 'COF', 'COP', 'COST', 'CRM', 'CSCO', 'CVS', 'CVX', 'DE', 'DHR', 'DIS', 'DUK', 'EMR', 'FDX', 'GD', 'GE', 'GEV', 'GILD', 'GM', 'GOOG', 'GOOGL', 'GS', 'HD', 'HON', 'IBM', 'INTC', 'INTU', 'ISRG', 'JNJ', 'JPM', 'KO', 'LIN', 'LLY', 'LMT', 'LOW', 'LRCX', 'MA', 'MCD', 'MDLZ', 'MDT', 'META', 'MMM', 'MO', 'MRK', 'MS', 'MSFT', 'MU', 'NEE', 'NFLX', 'NKE', 'NOW', 'NVDA', 'ORCL', 'PEP', 'PFE', 'PG', 'PLTR', 'PM', 'QCOM', 'RTX', 'SBUX', 'SCHW', 'SO', 'SPG', 'T', 'TMO', 'TMUS', 'TSLA', 'TXN', 'UBER', 'UNH', 'UNP', 'UPS', 'USB', 'V', 'VZ', 'WFC', 'WMT', 'XOM'] (101 candidates)
+Kept in panel: 99 tickers
+Feature set: ['PE_trailing', 'PEG', 'PBR', 'DY', 'R_acc_yoy', 'E_qoq', 'E_yoy', 'E_acc_yoy', 'Op_qoq', 'Op_yoy', 'Op_acc_yoy', 'Gross', 'Gross_qoq', 'EPS_qoq', 'ROA', 'ROE', 'NPM', 'DE']
+Rolling: 16Q train + 4Q validation → predict next 1Q
+Top 20% selection
+Initial capital: $1,000,000
+
+Metrics:
+method       final_$  return_%  sharpe  max_dd_%
+    EW 1,568,520.782    56.852   1.304   -18.579
+   MVO 1,656,887.312    65.689   0.821   -31.029
+MINVAR 1,275,488.164    27.549   0.852   -16.117
+  ^OEX 1,389,905.815    38.991   0.962   -19.887
+   DES 1,996,173.616    99.617   3.962    -6.306

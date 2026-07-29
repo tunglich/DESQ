@@ -1,0 +1,14 @@
+Yang 2018 IEEE DSR — Dow 30 reproduction
+Trade period: 2024-01-02 ~ 2026-03-30
+Universe: 30 candidates → kept 30 in panel
+Rolling: 16Q train + 4Q validation → predict next 1Q
+Top 20% selection
+Initial capital: $1,000,000
+
+Metrics:
+method       final_$  return_%  sharpe  max_dd_%
+    EW 1,087,428.499     8.743   0.313   -17.928
+   MVO   776,789.930   -22.321  -0.357   -35.081
+MINVAR 1,117,792.767    11.779   0.397   -15.983
+  ^DJI 1,198,888.872    19.889   0.643   -16.369
+   DES 1,686,223.878    68.622   2.912    -7.868

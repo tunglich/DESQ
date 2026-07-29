@@ -1,0 +1,14 @@
+Yang 2018 IEEE DSR — S&P 100 reproduction
+Trade period: 2024-01-02 ~ 2026-03-30
+Universe: 101 candidates → kept 99 in panel
+Rolling: 16Q train + 4Q validation → predict next 1Q
+Top 20% selection
+Initial capital: $1,000,000
+
+Metrics:
+method       final_$  return_%  sharpe  max_dd_%
+    EW 1,556,795.234    55.680   1.284   -18.742
+   MVO 1,644,501.176    64.450   0.811   -31.098
+MINVAR 1,265,953.194    26.595   0.828   -16.201
+  ^OEX 1,389,905.815    38.991   0.962   -19.887
+   DES 1,895,017.238    89.502   3.774    -6.471

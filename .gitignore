@@ -21,3 +21,40 @@ Thumbs.db
 # Distribution
 dist/
 build/
+
+# ---- US extension guards ----
+# Scratch / debug scripts
+us/_*.py
+us/_*.sh
+us/_*.ps1
+us/_*.txt
+us/_*.json
+
+# Secrets
+.av_key
+us/.av_key
+*.env
+.env
+
+# Model weights & large training artefacts (regenerable)
+us/DES_model_US/
+us/RF_model_US/
+us/DES_model_US_ablation/
+us/RF_model_US_ablation/
+us/feature/
+us/experiment/
+us/hyper/
+us/logs/
+us/AI_us/
+us/FinRL/
+us/prob_cusum/
+us/cumSum_prob_6/
+us/cumSum_prob_15/
+us/model_pred_RF_US/
+us/model_pred_DES_US_ablation/
+us/model_pred_DES_US_ablation_range/
+us/backtest_portfolio_US/*.pkl
+
+# Local env
+us/.venv/
+us/.venv-1/
