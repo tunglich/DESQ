@@ -95,7 +95,6 @@ tw50_pipeline/
 
 ## Notes
 
-- **No CUSUM**: this pipeline does not use CUSUM statistics anywhere. Buy/sell signals are derived purely from the DES probability threshold.
 - **No sentiment**: only the 5 quantitative aspects are used.
 - **Prices**: `tw50_des.py` reads user-supplied OHLCV from `prices/<stock_id>.csv` with columns `Date,Open,High,Low,Close,Volume` (Date parseable). Bring your own price source (e.g. yfinance).
 - **Walk-forward rolling**: constant `WF_N_SPLITS=5`, `WF_VAL_RATIO=0.2`, `WF_GAP=10` trading days between train and validation to reduce leakage.
