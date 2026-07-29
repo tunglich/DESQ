@@ -7,13 +7,15 @@ The reference repo shipped one CSV per (symbol, window) in the schema:
     <DATE>, <DES>, <OPEN>, <HIGH>, <LOW>, <CLOSE>
 
 where `<DES>` was a binary {0, 1} label derived from **ground-truth**
-forward-return direction.
+forward-return direction, and `window` was a per-symbol accuracy setting.
 
 This variant
 -------------
 Here `<DES>` is derived from the **DESQ pipeline output** (the KNORA-E
-aggregated probability produced by `tw50_des.py`) instead. Everything else
-in the DQN pipeline is unchanged.
+aggregated probability produced by `tw50_des.py`) instead. DESQ produces
+exactly one DES signal per stock, so the per-symbol accuracy `window` no
+longer applies and is dropped everywhere. Everything else in the DQN
+pipeline is unchanged.
 
     <DES> = 1  if  prob_up > threshold  else 0
 
@@ -28,14 +30,9 @@ Input files
 
 Outputs
 -------
-    ./data/<sym>_all_<window>.csv       (one file per requested window)
+    ./data/<sym>_all.csv                (one file per symbol)
         Columns: <DATE>, <DES>, <OPEN>, <HIGH>, <LOW>, <CLOSE>
     ./data/tw50_2023-12-29.csv          (copy of the top-50 list, if present)
-
-Because the DESQ pipeline emits a single DES probability per stock, all
-`--windows` requested produce IDENTICAL CSVs; the multi-window layout is
-kept only so the downstream DQN CLI (`--window {55,60,65,75}`) works
-without changes.
 
 Coverage note
 -------------
@@ -48,13 +45,12 @@ years, then re-run this script.
 Usage
 -----
     python build_dqn_data.py --stock-ids 2330
-    python build_dqn_data.py --top50 --windows 55,60,65,75 --overwrite
+    python build_dqn_data.py --top50 --overwrite
 """
 
 from __future__ import annotations
 
 import argparse
-import csv
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -67,7 +63,6 @@ PARENT_ROOT = REPO_ROOT.parent  # tw50_pipeline / DESQ root
 DEFAULT_DES_PRED_DIR = PARENT_ROOT / 'artifacts' / 'des' / 'pred'
 DEFAULT_PRICES_DIR = PARENT_ROOT / 'prices'
 DEFAULT_DEST_DIR = REPO_ROOT / 'data'
-DEFAULT_WINDOWS = (55, 60, 65, 75)
 DEFAULT_THRESHOLD = 0.5
 KEEP_COLS = ('<DATE>', '<DES>', '<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>')
 
@@ -169,18 +164,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument('--des-dir', type=Path, default=DEFAULT_DES_PRED_DIR)
     p.add_argument('--prices-dir', type=Path, default=DEFAULT_PRICES_DIR)
     p.add_argument('--dest-dir', type=Path, default=DEFAULT_DEST_DIR)
-    p.add_argument('--windows', default=','.join(str(w) for w in DEFAULT_WINDOWS),
-                   help='comma-separated windows to emit (default: 55,60,65,75)')
     p.add_argument('--threshold', type=float, default=DEFAULT_THRESHOLD,
                    help='DES probability threshold to binarize (default: 0.5)')
     p.add_argument('--overwrite', action='store_true')
     args = p.parse_args(argv)
 
-    windows = tuple(int(w.strip()) for w in args.windows.split(',') if w.strip())
     stock_ids = parse_stock_ids(args.stock_ids, args.top50)
 
-    print(f'[PLAN] stocks={len(stock_ids)}  windows={windows}  '
-          f'threshold={args.threshold}  overwrite={args.overwrite}')
+    print(f'[PLAN] stocks={len(stock_ids)}  threshold={args.threshold}  '
+          f'overwrite={args.overwrite}')
     print(f'       des_dir={args.des_dir}')
     print(f'       prices_dir={args.prices_dir}')
     print(f'       dest_dir={args.dest_dir}')
@@ -204,12 +196,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         des_pos = int((df['<DES>'] == 1).sum())
         print(f'  {sym}: {len(df)} rows  {head_date}..{tail_date}  '
               f'DES=1: {des_pos}/{len(df)}')
-        for w in windows:
-            dst = args.dest_dir / f'{sym}_all_{w}.csv'
-            if write_csv(df, dst, overwrite=args.overwrite):
-                n_written += 1
-            else:
-                n_skipped += 1
+        dst = args.dest_dir / f'{sym}_all.csv'
+        if write_csv(df, dst, overwrite=args.overwrite):
+            n_written += 1
+        else:
+            n_skipped += 1
 
     print(f'\n[SUMMARY] wrote={n_written}  skipped_existing={n_skipped}  '
           f'failed={len(fails)}')

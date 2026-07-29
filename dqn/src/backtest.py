@@ -7,8 +7,8 @@ Reports:
   * Buy&Hold cumulative return % over the same span, after TW retail costs
 
 Usage:
-    python src/backtest.py --symbol 2330 --window 75
-    python src/backtest.py --symbol 2330 --window 75 --model trained_models/2330_all_75.data
+    python src/backtest.py --symbol 2330
+    python src/backtest.py --symbol 2330 --model trained_models/2330_all.data
     python src/backtest.py --all --out backtest_summary.csv
 """
 from __future__ import annotations
@@ -29,7 +29,6 @@ from lib import data, environ, models  # noqa: E402
 
 TEST_START = pd.Timestamp("2024-01-02")
 TEST_END = pd.Timestamp("2026-03-30")
-WINDOWS = (55, 60, 65, 75)
 
 
 def slice_test_csv(csv_path: Path, tmp_path: Path,
@@ -124,8 +123,8 @@ def load_top50_symbols(data_dir: Path) -> list[str]:
         return [row[1].strip() for row in reader if row and row[0].strip().isdigit()]
 
 
-def resolve_model_path(models_dir: Path, symbol: str, window: int) -> Path:
-    p = models_dir / f"{symbol}_all_{window}.data"
+def resolve_model_path(models_dir: Path, symbol: str) -> Path:
+    p = models_dir / f"{symbol}_all.data"
     if not p.is_file():
         raise FileNotFoundError(p)
     return p
@@ -134,8 +133,7 @@ def resolve_model_path(models_dir: Path, symbol: str, window: int) -> Path:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--symbol")
-    ap.add_argument("--window", type=int, choices=WINDOWS)
-    ap.add_argument("--all", action="store_true", help="Backtest every TW50 sym x window")
+    ap.add_argument("--all", action="store_true", help="Backtest every TW50 symbol")
     ap.add_argument("--model", type=Path, default=None, help="Override checkpoint path")
     ap.add_argument("--models-dir", type=Path, default=REPO_ROOT / "trained_models")
     ap.add_argument("--data-dir", type=Path, default=REPO_ROOT / "data")
@@ -150,35 +148,33 @@ def main() -> int:
 
     device = "cuda" if (not args.cpu and torch.cuda.is_available()) else "cpu"
 
-    jobs: list[tuple[str, int]] = []
+    jobs: list[str] = []
     if args.all:
-        for sym in load_top50_symbols(args.data_dir):
-            for w in WINDOWS:
-                jobs.append((sym, w))
+        jobs.extend(load_top50_symbols(args.data_dir))
     else:
-        if not args.symbol or not args.window:
-            ap.error("--symbol and --window are required unless --all is set")
-        jobs.append((args.symbol, args.window))
+        if not args.symbol:
+            ap.error("--symbol is required unless --all is set")
+        jobs.append(args.symbol)
 
     rows: list[dict] = []
-    for sym, w in jobs:
-        csv_path = args.data_dir / f"{sym}_all_{w}.csv"
-        tmp_test = args.tmp_dir / f"{sym}_all_{w}_test.csv"
+    for sym in jobs:
+        csv_path = args.data_dir / f"{sym}_all.csv"
+        tmp_test = args.tmp_dir / f"{sym}_all_test.csv"
         if not csv_path.is_file():
-            print(f"[skip] {sym}_{w}: missing {csv_path}")
+            print(f"[skip] {sym}: missing {csv_path}")
             continue
         try:
             df = slice_test_csv(csv_path, tmp_test)
         except Exception as e:  # noqa: BLE001
-            print(f"[skip] {sym}_{w}: {e}")
+            print(f"[skip] {sym}: {e}")
             continue
 
         model_path = args.model if (args.model and not args.all) else None
         if model_path is None:
             try:
-                model_path = resolve_model_path(args.models_dir, sym, w)
+                model_path = resolve_model_path(args.models_dir, sym)
             except FileNotFoundError as e:
-                print(f"[skip] {sym}_{w}: no model at {e}")
+                print(f"[skip] {sym}: no model at {e}")
                 continue
 
         try:
@@ -188,14 +184,13 @@ def main() -> int:
                                bars_count=args.bars, device=device,
                                epsilon=args.epsilon)
         except Exception as e:  # noqa: BLE001
-            print(f"[error] {sym}_{w}: {e}")
+            print(f"[error] {sym}: {e}")
             continue
 
         bh_pct = buy_and_hold_pct(df, args.commission_buy, args.commission_sell)
         n_rows = len(df)
         row = {
             "symbol": sym,
-            "window": w,
             "test_start": df["<DATE>"].iloc[0].strftime("%Y-%m-%d"),
             "test_end": df["<DATE>"].iloc[-1].strftime("%Y-%m-%d"),
             "n_rows": n_rows,
@@ -206,7 +201,7 @@ def main() -> int:
             "model_file": model_path.name,
         }
         rows.append(row)
-        print(f"  {sym}_{w}: model={row['model_pct']:+7.2f}%  BH={row['bh_pct']:+7.2f}%  "
+        print(f"  {sym}: model={row['model_pct']:+7.2f}%  BH={row['bh_pct']:+7.2f}%  "
               f"excess={row['excess_pct']:+7.2f}%  rows={n_rows}  "
               f"buys={row['n_buy']} closes={row['n_close']}")
 

@@ -12,8 +12,8 @@ Configuration is intentionally narrow compared to the internal
 * Test           : 2024-01-02 ~ 2026-03-30 (see ``src/backtest.py``)
 
 Usage:
-    python src/train_dqn.py --symbol 2330 --window 75 --fold 0 --hours 1.5
-    python src/train_dqn.py --symbol 2330 --window 75 --fold all --hours 1.5
+    python src/train_dqn.py --symbol 2330 --fold 0 --hours 1.5
+    python src/train_dqn.py --symbol 2330 --fold all --hours 1.5
 """
 from __future__ import annotations
 
@@ -302,15 +302,15 @@ def train_one_fold(cfg: dict) -> dict:
             "saves_path": str(saves_path)}
 
 
-def run_walk_forward(symbol: str, window: int, cfg: dict, folds: list[int] | None = None) -> None:
+def run_walk_forward(symbol: str, cfg: dict, folds: list[int] | None = None) -> None:
     data_dir = Path(cfg.pop("data_dir", REPO_ROOT / "data"))
-    csv_path = data_dir / f"{symbol}_all_{window}.csv"
+    csv_path = data_dir / f"{symbol}_all.csv"
     if not csv_path.is_file():
         raise SystemExit(f"missing data: {csv_path}")
 
-    saves_root = Path(cfg.pop("saves_root", REPO_ROOT / "saves")) / f"{symbol}_all_{window}"
+    saves_root = Path(cfg.pop("saves_root", REPO_ROOT / "saves")) / f"{symbol}_all"
     saves_root.mkdir(parents=True, exist_ok=True)
-    print(f"walk-forward: symbol={symbol} window={window}  saves_root={saves_root}")
+    print(f"walk-forward: symbol={symbol}  saves_root={saves_root}")
 
     df = load_prefiltered(csv_path)
     all_folds = split_folds(df)
@@ -328,7 +328,7 @@ def run_walk_forward(symbol: str, window: int, cfg: dict, folds: list[int] | Non
             "train_csv": fp.train_csv,
             "val_csv": fp.val_csv,
             "saves_path": fold_dir,
-            "run_name": f"{symbol}_all_{window}_fold{k}",
+            "run_name": f"{symbol}_all_fold{k}",
         })
         train_one_fold(fold_cfg)
 
@@ -337,7 +337,6 @@ def _build_argparser() -> argparse.ArgumentParser:
     cfg = default_cfg()
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--symbol", required=True)
-    p.add_argument("--window", required=True, type=int, choices=(55, 60, 65, 75))
     p.add_argument("--fold", default="all", help="'all' or comma-separated indices, e.g. 0,2,4")
     p.add_argument("--hours", type=float, default=cfg["train_hours"], help="wall-clock budget per fold")
     p.add_argument("--n-envs", type=int, default=cfg["n_envs"])
@@ -383,7 +382,7 @@ def main() -> int:
         folds = None
     else:
         folds = [int(x) for x in args.fold.split(",")]
-    run_walk_forward(args.symbol, args.window, cfg, folds=folds)
+    run_walk_forward(args.symbol, cfg, folds=folds)
     return 0
 
 

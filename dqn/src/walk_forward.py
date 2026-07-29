@@ -10,8 +10,8 @@ in the retained span are also dropped so ``prices_to_relative`` doesn't divide
 by zero.
 
 CLI:
-    python src/walk_forward.py --symbol 2330 --window 75 --dry-run
-    python src/walk_forward.py --symbol 2330 --window 75 --fold 0 --out saves/2330_all_75/fold_0
+    python src/walk_forward.py --symbol 2330 --dry-run
+    python src/walk_forward.py --symbol 2330 --fold 0 --out saves/2330_all/fold_0
 """
 from __future__ import annotations
 
@@ -101,20 +101,19 @@ def build_all_folds(csv_path: Path, out_dir: Path, n_folds: int = N_FOLDS) -> li
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--symbol", required=True, help="e.g. 2330")
-    ap.add_argument("--window", required=True, type=int, choices=(55, 60, 65, 75))
     ap.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
     ap.add_argument("--out", type=Path, default=None,
-                    help="Directory to write fold CSVs (default: saves/{sym}_all_{window}/)")
+                    help="Directory to write fold CSVs (default: saves/{sym}_all/)")
     ap.add_argument("--fold", type=int, default=None,
                     help="Only export a specific fold (0..N-1); default all")
     ap.add_argument("--n-folds", type=int, default=N_FOLDS)
     ap.add_argument("--dry-run", action="store_true", help="Print fold ranges without writing files")
     args = ap.parse_args()
 
-    csv_path = args.data_dir / f"{args.symbol}_all_{args.window}.csv"
+    csv_path = args.data_dir / f"{args.symbol}_all.csv"
     if not csv_path.is_file():
         raise SystemExit(f"missing: {csv_path}")
-    out_dir = args.out or (REPO_ROOT / "saves" / f"{args.symbol}_all_{args.window}")
+    out_dir = args.out or (REPO_ROOT / "saves" / f"{args.symbol}_all")
 
     df = load_prefiltered(csv_path)
     print(f"{csv_path.name}: {len(df)} pre-test rows "
