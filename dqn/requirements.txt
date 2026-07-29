@@ -1,0 +1,6 @@
+numpy>=1.24
+pandas>=2.0
+torch>=2.0
+gymnasium>=0.29
+ptan>=0.8
+tensorboardX>=2.6
