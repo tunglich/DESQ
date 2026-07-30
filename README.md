@@ -8,6 +8,29 @@ A market-timing framework for the TWSE Top-50 constituents that stacks:
 
 The pipeline uses **walk-forward rolling validation** (4:1 train:val ratio) on 5 feature aspects (no sentiment, no CUSUM).
 
+## Experimental results
+
+Out-of-sample back-tests over the 2024-01-02 to 2026-03-31 test window. DESQ (blue) is the KNORA-E ensemble of the five ATT+Dynamic-Flooding aspects with the signal-pattern trader; the black line is a passive buy-and-hold benchmark.
+
+![Out-of-sample back-tests](evaluation/figure_backtest_overview.png)
+
+| Panel | DESQ cumulative return | Buy-and-hold cumulative return | Source CSV |
+| --- | ---: | ---: | --- |
+| TSMC (2330.TT) | **+202.53 %** | +201.82 % | [evaluation/backtest_2330.csv](evaluation/backtest_2330.csv) |
+| MediaTek (2454.TT) | **+103.42 %** | +62.69 % | [evaluation/backtest_2454.csv](evaluation/backtest_2454.csv) |
+| TW-50 Model Portfolio (vs TWA02) | **+131.37 %** | +88.07 % | [evaluation/backtest_portfolio_tw50.csv](evaluation/backtest_portfolio_tw50.csv) |
+
+Regenerate the figure directly from the shipped CSVs with:
+
+```bash
+python evaluation/render_figure_backtest.py
+```
+
+The CSV schemas are:
+
+- Single-stock panels (`backtest_2330.csv`, `backtest_2454.csv`): `Date, Model_Return_Pct, Stock_Return_Pct, Model_Return_Ratio, Stock_Return_Ratio`.
+- Portfolio panel (`backtest_portfolio_tw50.csv`): `Date, Model_CumRet, Benchmark_CumRet, Model_CumRet_Pct, Benchmark_CumRet_Pct`.
+
 ## Data window
 
 | Split                | Range                        |
@@ -71,6 +94,7 @@ tw50_pipeline/
 │   ├── flood/{hyperbayes,feature_selection,feature_scaler,experiments}/
 │   ├── dflood/{feature_selection,feature_scaler,models,pred}/
 │   └── des/{pred,models,backtest}/
+├── evaluation/                  # shipped back-test CSVs + figure regen script
 └── dqn/                         # optional DQN benchmark using DES output
 ```
 
