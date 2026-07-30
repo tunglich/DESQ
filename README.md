@@ -6,7 +6,7 @@ A market-timing framework for the TWSE Top-50 constituents that stacks:
 2. **Dynamic Flooding** retraining with the best `flooding_b` per aspect.
 3. **Dynamic Ensemble Selection (KNORA-E)** across the 5 per-aspect ATT predictions, followed by a signal-pattern-driven backtest.
 
-The pipeline uses **walk-forward rolling validation** (4:1 train:val ratio) on 5 feature aspects (no sentiment, no CUSUM).
+The pipeline uses **walk-forward rolling validation** (4:1 train:val ratio) on 5 feature aspects.
 
 ## End-to-end training pipeline
 
