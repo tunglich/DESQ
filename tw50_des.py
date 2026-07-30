@@ -51,6 +51,15 @@ warnings.filterwarnings('ignore')
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import RandomizedSearchCV
 
+# deslib 0.3.7 compat shim: scikit-learn >= 1.7 removed BaseEstimator._validate_data,
+# but deslib still calls self._validate_data(...) from its base class. Re-attach it.
+import sklearn.base
+if not hasattr(sklearn.base.BaseEstimator, '_validate_data'):
+    from sklearn.utils.validation import validate_data as _sklearn_validate_data
+    sklearn.base.BaseEstimator._validate_data = (
+        lambda self, *args, **kwargs: _sklearn_validate_data(self, *args, **kwargs)
+    )
+
 try:
     from deslib.des.knora_e import KNORAE
 except ImportError as err:  # pragma: no cover - install-time issue

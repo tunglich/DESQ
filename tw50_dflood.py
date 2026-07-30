@@ -24,8 +24,9 @@ Usage
 Outputs
 -------
     ./artifacts/dflood/pred/<stock>_<aspect>.csv
-        columns: Date, y_true_20, prob_up, prob_down
-        Only the test window (2024-01-01 .. 2026-03-31) is written.
+        columns: Date, y_true_20, prob_down, prob_up
+        Covers 2020-01-01..TRAIN_END (in-sample, needed by Stage 3 KNORA-E fit)
+        and TEST_START..TEST_END (out-of-sample, backtested by Stage 3).
     ./artifacts/dflood/models/<stock>_<aspect>.keras
         Retrained model weights (loadable via keras.models.load_model).
 """
@@ -98,6 +99,11 @@ for _p in (PRED_DIR, MODEL_DIR):
 DFLOOD_MIN_B = 0.0
 DFLOOD_MAX_B = 0.4
 DFLOOD_STEP = 0.05
+
+# Stage 3 (tw50_des.py) fits KNORA-E on DES_TRAIN_START..TRAIN_END, so we
+# emit in-sample train-window predictions from this date in addition to the
+# out-of-sample test window (TEST_START..TEST_END).
+DES_TRAIN_START = '2020-01-01'
 
 
 # =============================================================================
@@ -262,10 +268,11 @@ def retrain_and_predict(aspect: str, stock_id: str, epochs: int, batch_size: int
 
     X_tr, y_tr, dates_tr = build_windows(train_df, lookback=lookback)
     X_te, y_te, dates_te = build_windows(combined_test, lookback=lookback)
-    # Keep only windows whose end-date falls inside the test window.
-    mask_te = (dates_te >= pd.Timestamp(TEST_START)) & (dates_te <= pd.Timestamp(TEST_END))
-    X_te = X_te[mask_te.to_numpy()]
-    y_te = y_te[mask_te.to_numpy()]
+    # dates_te is a DatetimeIndex; comparisons already yield an ndarray.
+    mask_te = np.asarray((dates_te >= pd.Timestamp(TEST_START)) &
+                          (dates_te <= pd.Timestamp(TEST_END)))
+    X_te = X_te[mask_te]
+    y_te = y_te[mask_te]
     dates_te = dates_te[mask_te]
 
     X_tr = X_tr.astype(np.float32)
@@ -306,17 +313,40 @@ def retrain_and_predict(aspect: str, stock_id: str, epochs: int, batch_size: int
     )
     print(f'[FIT] final_b={model.flooding_b:.2f}, wall={time.time()-started:.1f}s')
 
-    # Predict on test window.
+    # Predict on test window (out-of-sample).
     probs = model.predict(X_te, batch_size=batch_size, verbose=0)
-    df_pred = pd.DataFrame({
+    df_pred_te = pd.DataFrame({
         'Date': dates_te,
         'y_true_20': y_te.astype(int),
         'prob_down': probs[:, 0],
         'prob_up': probs[:, 1],
     })
+
+    # Also emit in-sample predictions for the DES-train window so Stage 3
+    # (tw50_des.py) has data to fit KNORA-E on.
+    mask_des_train = np.asarray((dates_tr >= pd.Timestamp(DES_TRAIN_START)) &
+                                  (dates_tr <= pd.Timestamp(TRAIN_END)))
+    if mask_des_train.any():
+        X_tr_des = X_tr[mask_des_train]
+        y_tr_des = y_tr[mask_des_train]
+        dates_tr_des = dates_tr[mask_des_train]
+        probs_tr = model.predict(X_tr_des, batch_size=batch_size, verbose=0)
+        df_pred_tr = pd.DataFrame({
+            'Date': dates_tr_des,
+            'y_true_20': y_tr_des.astype(int),
+            'prob_down': probs_tr[:, 0],
+            'prob_up': probs_tr[:, 1],
+        })
+        df_pred = pd.concat([df_pred_tr, df_pred_te], axis=0, ignore_index=True)
+    else:
+        df_pred = df_pred_te
+
+    df_pred = (df_pred.drop_duplicates(subset=['Date'], keep='last')
+                       .sort_values('Date')
+                       .reset_index(drop=True))
     out_pred = PRED_DIR / f'{stock_id}_{aspect}.csv'
     df_pred.to_csv(out_pred, index=False)
-    print(f'[SAVE] pred -> {out_pred}')
+    print(f'[SAVE] pred -> {out_pred}  (train_rows={len(df_pred)-len(df_pred_te)}, test_rows={len(df_pred_te)})')
 
     # Save model weights + dynamic flooding history.
     out_model = MODEL_DIR / f'{stock_id}_{aspect}.keras'
