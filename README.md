@@ -31,6 +31,26 @@ The CSV schemas are:
 - Single-stock panels (`backtest_2330.csv`, `backtest_2454.csv`): `Date, Model_Return_Pct, Stock_Return_Pct, Model_Return_Ratio, Stock_Return_Ratio`.
 - Portfolio panel (`backtest_portfolio_tw50.csv`): `Date, Model_CumRet, Benchmark_CumRet, Model_CumRet_Pct, Benchmark_CumRet_Pct`.
 
+### US extension — four-method paper reproduction
+
+Same ATT + Dynamic Flooding + KNORA-E stack applied to Dow 30 / S&P 100 / NASDAQ 100, benchmarked against three published DRL baselines. **DTE** = our method (blue). See the [US extension README](us/README.md) and [baselines/backtest_report.md](us/baselines/backtest_report.md) for full experimental setup.
+
+![Four methods across three US universes](us/baselines/combined/four_methods_1x3.png)
+
+| Universe | DTE (ours) | DSR — Yang 2018 | DRL Ensemble — Yang 2020 | MACE — Abbade 2026 | Benchmark index |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Dow 30     | **+68.6 %** | +11.8 % | +28.6 % | +65.5 % | +19.9 % (^DJI) |
+| S&P 100    | **+89.5 %** | +64.5 % | +25.8 % | +34.3 % | +39.0 % (^OEX) |
+| NASDAQ 100 | **+92.1 %** | +79.5 % | +51.6 % | +41.0 % | +38.7 % (^NDX) |
+
+Per-day cumulative-return CSVs (columns: `date, DTE, DRL Ensemble, Dynamic Stock Recommendation, MACE, <benchmark>`):
+
+- [us/baselines/combined/dow30_comparison.csv](us/baselines/combined/dow30_comparison.csv)
+- [us/baselines/combined/sp100_comparison.csv](us/baselines/combined/sp100_comparison.csv)
+- [us/baselines/combined/ndx100_comparison.csv](us/baselines/combined/ndx100_comparison.csv)
+
+Full stats (Sharpe / Sortino / MaxDD / Calmar): [us/baselines/combined/combined_stats.md](us/baselines/combined/combined_stats.md) · [combined_stats.csv](us/baselines/combined/combined_stats.csv). Regenerate the figure with `python us/baselines/combined/combined_comparison.py`.
+
 ### Training time (single stock)
 
 Measured on RTX 5090 and RTX 5080 (WSL2 Ubuntu-24.04, TF 2.21, `finlab` conda env). Wall-clock time is essentially the same on both cards for this workload.
