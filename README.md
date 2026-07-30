@@ -31,6 +31,23 @@ The CSV schemas are:
 - Single-stock panels (`backtest_2330.csv`, `backtest_2454.csv`): `Date, Model_Return_Pct, Stock_Return_Pct, Model_Return_Ratio, Stock_Return_Ratio`.
 - Portfolio panel (`backtest_portfolio_tw50.csv`): `Date, Model_CumRet, Benchmark_CumRet, Model_CumRet_Pct, Benchmark_CumRet_Pct`.
 
+### Training time (single stock)
+
+Measured on RTX 5090 and RTX 5080 (WSL2 Ubuntu-24.04, TF 2.21, `finlab` conda env). Wall-clock time is essentially the same on both cards for this workload.
+
+| Stage | Script | Time per stock |
+| --- | --- | ---: |
+| Phase 1 — hyperparameter search (Bayesian) | `ATT+Flood.py` | ~3 h |
+| Phase 2 — Dynamic Flooding retraining (18 repeats, top-3 kept) | `ATT+Dflooding.py` | ~2 h |
+| DES ensemble (RF + KNORA-E + CUSUM + backtest) | `DES_update_ATT-sentiment.py` | ~5 min |
+| **Total per stock** (6 aspects, ATT only) | Batch_training agent | **~5 h** |
+
+Reference guides for the internal end-to-end training pipeline that produced the above experimental results (uses the parent workspace's ATT scripts, not the compact `tw50_flood.py` / `tw50_dflood.py` / `tw50_des.py` demos in this repo):
+
+- [docs/att_batch_training/README_Batch_training.md](docs/att_batch_training/README_Batch_training.md) — Batch_training agent (RTX 5090)
+- [docs/att_batch_training/README_Batch_training_5080.md](docs/att_batch_training/README_Batch_training_5080.md) — Batch_training agent (RTX 5080)
+- [docs/att_batch_training/README_DES.md](docs/att_batch_training/README_DES.md) — DES ensemble execution guide
+
 ## Data window
 
 | Split                | Range                        |
