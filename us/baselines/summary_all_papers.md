@@ -1,11 +1,11 @@
-# Portfolio-Backtest Baselines ??Full 4?3 Paper Reproduction Matrix
+# Portfolio-Backtest Baselines — Full 4×3 Paper Reproduction Matrix
 
-Trade window **2024-01-02 ??2026-03-30**, initial capital **$1,000,000**,
+Trade window **2024-01-02 → 2026-03-30**, initial capital **$1,000,000**,
 three universes (Dow 30 / S&P 100 / NASDAQ 100), four methods each.
 
 **Main artefacts**
 
-- Combined 1?3 comparison chart:
+- Combined 1×3 comparison chart:
   [baselines/combined/four_methods_1x3.png](baselines/combined/four_methods_1x3.png)
 - Per-universe standalone charts:
   [dow30](baselines/combined/dow30_comparison.png) ·
@@ -38,13 +38,13 @@ CSVs are all still named **DES** on disk (unchanged from earlier work).
 | Dynamic Stock Recommendation (Yang 2018)   | 0.05 % | 0.05 % | 0.10 % |
 | DRL Ensemble (Yang 2020)                   | 0.05 % | 0.05 % | 0.10 % |
 | MACE-baseline (Abbade 2026)                | 0.05 % | 0.05 % | 0.10 % |
-| MACE-AC (Abbade 2026, paper model)         | Almgren-Chriss (α=0.5, β=1.0, ε=5 bps, ?½=5 d) |
+| MACE-AC (Abbade 2026, paper model)         | Almgren-Chriss (α=0.5, β=1.0, ε=5 bps, τ½=5 d) |
 
 DESQ carries the highest transaction cost of the four methods. The three
 peer baselines all share 0.10 % roundtrip so their comparison is
 like-for-like.
 
-## Snapshot ??total return by universe (%)
+## Snapshot — total return by universe (%)
 
 | Method \\ Universe | Dow 30 | S&P 100 | NASDAQ 100 |
 |---|---:|---:|---:|
@@ -62,14 +62,14 @@ excess return vs index are in
 
 ## Per-paper details
 
-### Yang et al. 2020 ??DRL Ensemble (63-day rolling Sharpe)
+### Yang et al. 2020 — DRL Ensemble (63-day rolling Sharpe)
 *Paper*: arXiv 2511.12120 (Yang, Liu, Zhong, Walid; ICAIF 2020).
 *Method*: 5 SB3 agents (A2C/PPO/DDPG/TD3/SAC) trained on 2015-2023,
 per-quarter rolling-Sharpe (63d) agent selection. First 63 days =
 equal-weight warm-up.
 *Adaptation*: agents are frozen (trained once); paper retrains each quarter.
 
-Aggregator: [FinRL/ensemble_aggregator.py](FinRL/ensemble_aggregator.py) ??
+Aggregator: [FinRL/ensemble_aggregator.py](FinRL/ensemble_aggregator.py) —
 `python ensemble_aggregator.py {dow30|sp100|ndx100}`.
 Per-quarter chosen agent in
 `FinRL/backtest_{universe}_*_2024_20260331/ensemble_selection.csv`.
@@ -78,25 +78,25 @@ Per-quarter chosen agent in
 - S&P 100: [FinRL/backtest_sp100_variantA_2024_20260331/](FinRL/backtest_sp100_variantA_2024_20260331/)
 - NDX 100: [FinRL/backtest_ndx100_variantA_2024_20260331/](FinRL/backtest_ndx100_variantA_2024_20260331/)
 
-### Yang, Liu, Wu 2018 IEEE ??Dynamic Stock Recommendation (DSR)
+### Yang, Liu, Wu 2018 IEEE — Dynamic Stock Recommendation (DSR)
 *Paper*: arXiv 2511.12129 / IEEE TrustCom/BigDataSE 2018.
-*Method*: quarterly panel of fundamental indicators ? 5 ML regressors
+*Method*: quarterly panel of fundamental indicators × 5 ML regressors
 (Linear / Ridge / Lasso / RandomForest / GBM); 16Q rolling training + 4Q
-validation ??pick lowest-MSE model ??hold **top 20 %** with EW / MVO /
+validation → pick lowest-MSE model → hold **top 20 %** with EW / MVO /
 MinVar allocation and quarterly rebalance.
 *Adaptation*: 18 features (14 in-house fundamentals + 4 AV-computed TTM
 ratios ROA/ROE/NPM/DE) instead of the paper's 20 Compustat
 X-indicators. Combined chart reports the best of EW/MVO/MinVar per
 universe by final return.
 
-Driver: [baselines/dsr_yang/dsr_backtest.py](baselines/dsr_yang/dsr_backtest.py) ??
+Driver: [baselines/dsr_yang/dsr_backtest.py](baselines/dsr_yang/dsr_backtest.py) —
 `python dsr_backtest.py {dow30|sp100|ndx100}`.
 
 - Dow 30 (30 tickers, top-6 selected): [baselines/dsr_yang/backtest_dow30_2024_20260330/](baselines/dsr_yang/backtest_dow30_2024_20260330/)
 - S&P 100 (99 tickers, top-20 selected): [baselines/dsr_yang/backtest_sp100_2024_20260330/](baselines/dsr_yang/backtest_sp100_2024_20260330/)
 - NDX 100 (95 tickers kept, top-19 selected): [baselines/dsr_yang/backtest_ndx100_2024_20260330/](baselines/dsr_yang/backtest_ndx100_2024_20260330/)
 
-### Abbade & Costa 2026 ??MACE (Almgren-Chriss Market Impact)
+### Abbade & Costa 2026 — MACE (Almgren-Chriss Market Impact)
 *Paper*: arXiv 2603.29086v2 (FinRL-Meta market-impact env).
 *Method*: same 5 SB3 agents, re-backtested under two cost models:
 - **Baseline**: flat 5 bps buy + 5 bps sell
@@ -107,26 +107,26 @@ Driver: [baselines/dsr_yang/dsr_backtest.py](baselines/dsr_yang/dsr_backtest.py)
   $C_\text{temp}  = \beta\sigma(|x|/V)|x|P$
   with $\alpha=0.5$, $\beta=1.0$, $\varepsilon=5$ bps, $\tau_{1/2}=5$ days.
 
-Env: [baselines/mi_abbade/env_mace.py](baselines/mi_abbade/env_mace.py) ??
-Driver: [baselines/mi_abbade/mace_backtest.py](baselines/mi_abbade/mace_backtest.py) ??
+Env: [baselines/mi_abbade/env_mace.py](baselines/mi_abbade/env_mace.py) —
+Driver: [baselines/mi_abbade/mace_backtest.py](baselines/mi_abbade/mace_backtest.py) —
 `python mace_backtest.py {dow30|sp100|ndx100}`.
 
 The combined chart shows the **best-AC agent** per universe (A2C for
 Dow 30, TD3 for S&P 100, PPO for Nasdaq 100).
 
-**Cost-model impact ??trades reduced by AC (baseline ??AC)**
+**Cost-model impact — trades reduced by AC (baseline → AC)**
 
 | Universe | Best AC agent | Baseline trades | AC trades | Reduction |
 |---|---|---:|---:|---:|
-| Dow 30    | A2C  | 7,266  | 1,403 | 5.2?  |
-| S&P 100   | TD3  | 33,160 |    52 | 638?  |
-| NDX 100   | PPO  | 20,574 | 1,907 | 10.8? |
+| Dow 30    | A2C  | 7,266  | 1,403 | 5.2×  |
+| S&P 100   | TD3  | 33,160 |    52 | 638×  |
+| NDX 100   | PPO  | 20,574 | 1,907 | 10.8× |
 
 - Dow 30: [baselines/mi_abbade/backtest_dow30_2024_20260330/](baselines/mi_abbade/backtest_dow30_2024_20260330/)
 - S&P 100: [baselines/mi_abbade/backtest_sp100_2024_20260330/](baselines/mi_abbade/backtest_sp100_2024_20260330/)
 - NDX 100: [baselines/mi_abbade/backtest_2024_20260330/](baselines/mi_abbade/backtest_2024_20260330/)
 
-### DESQ (ours) ??Dynamic-flooding Transformer Ensembles
+### DESQ (ours) — Dynamic-flooding Transformer Ensembles
 *Method*: each ticker trades on its own frozen DES probability signal +
 CUSUM direction filter. Position sizes fixed at market-cap weight at t0.
 Transaction cost = 0.10 % buy + 0.34 % sell (0.44 % roundtrip).
@@ -142,13 +142,13 @@ Skill spec: [.github/skills/backtesting-US/SKILL.md](.github/skills/backtesting-
 
 DESQ equity CSVs (refreshed 2026-07-02 with the new 0.10 % / 0.34 % fees):
 
-| Universe | Final $ (full CSV, 2024-01-02 ??2026-03-31) | Return | Sharpe |
+| Universe | Final $ (full CSV, 2024-01-02 → 2026-03-31) | Return | Sharpe |
 |---|---:|---:|---:|
 | Dow 30  | $1,703,533 | +70.35% | 2.96 |
 | S&P 100 | $1,908,878 | +90.89% | 3.81 |
 | NDX 100 | $1,934,929 | +93.49% | 3.15 |
 
-Slight discrepancy vs the 4?3 matrix in the report because the matrix
+Slight discrepancy vs the 4×3 matrix in the report because the matrix
 truncates at 2026-03-30 (last common trading day across all methods)
 whereas the DES CSV runs through 2026-03-31.
 
@@ -161,7 +161,7 @@ whereas the DES CSV runs through 2026-03-31.
 ## Reproduction commands
 
 ```powershell
-# 1. DESQ (DES) refresh ??all 3 universes
+# 1. DESQ (DES) refresh — all 3 universes
 powershell -File d:\US_stock\_refresh_des_3univ.ps1
 
 # 2. Yang 2018 DSR
@@ -193,13 +193,13 @@ powershell -File d:\US_stock\_rerun_new_costs.ps1
 
 - `finlabUS`: DESQ refresh, Yang 2018, Yang 2020 aggregator, combined chart
   (numpy / pandas / sklearn / yfinance only)
-- `DRL`: SB3 2.3.2 + FinRL ??required for Yang 2020 SB3 backtest and
+- `DRL`: SB3 2.3.2 + FinRL — required for Yang 2020 SB3 backtest and
   Abbade 2026 MACE (agent inference)
 
 ## SB3 trained agent locations
 
 | Universe | Directory | Notes |
 |---|---|---|
-| Dow 30     | `FinRL/trained_models/` and `FinRL/trained_models_train_to_2023/` | 30 tickers ? 20k timesteps |
-| S&P 100    | `FinRL/sp100_variantA_trained_models/`                            | 98 tickers ? 20k timesteps (added 2026-07-02) |
-| NASDAQ 100 | `FinRL/ndx100_variantA_trained_models/`                           | 85 tickers ? 20k timesteps |
+| Dow 30     | `FinRL/trained_models/` and `FinRL/trained_models_train_to_2023/` | 30 tickers × 20k timesteps |
+| S&P 100    | `FinRL/sp100_variantA_trained_models/`                            | 98 tickers × 20k timesteps (added 2026-07-02) |
+| NASDAQ 100 | `FinRL/ndx100_variantA_trained_models/`                           | 85 tickers × 20k timesteps |

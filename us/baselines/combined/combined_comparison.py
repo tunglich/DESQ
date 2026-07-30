@@ -1,15 +1,15 @@
-"""Build the combined 1?3 comparison figure + extended stats table.
+"""Build the combined 1×3 comparison figure + extended stats table.
 
-Layout: one figure with 3 side-by-side subplots ??Dow 30 | S&P 100 | NASDAQ 100.
+Layout: one figure with 3 side-by-side subplots — Dow 30 | S&P 100 | NASDAQ 100.
 Each subplot shows 5 cumulative-return curves (DESQ + 3 papers + benchmark),
 styled to match the academic reference (serif font, muted palette, subtle grid).
 
 Outputs:
-    baselines/combined/four_methods_1x3.png       ??main 1?3 combined figure
-    baselines/combined/{u}_comparison.png         ??per-universe standalone (kept)
-    baselines/combined/{u}_comparison.csv         ??per-universe cum-return data
-    baselines/combined/combined_stats.csv         ??extended statistics table
-    baselines/combined/combined_stats.md          ??same table in Markdown
+    baselines/combined/four_methods_1x3.png       — main 1×3 combined figure
+    baselines/combined/{u}_comparison.png         — per-universe standalone (kept)
+    baselines/combined/{u}_comparison.csv         — per-universe cum-return data
+    baselines/combined/combined_stats.csv         — extended statistics table
+    baselines/combined/combined_stats.md          — same table in Markdown
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ import pandas as pd
 import yfinance as yf
 
 # ---------------------------------------------------------------------------
-# Style ??academic / serif, muted palette (mirrors the reference figure).
+# Style — academic / serif, muted palette (mirrors the reference figure).
 # ---------------------------------------------------------------------------
 plt.rcParams.update({
     "font.family":       "serif",
@@ -51,7 +51,7 @@ plt.rcParams.update({
     "axes.facecolor":    "white",
 })
 
-# Seaborn-deep muted palette ??matches the reference chart family
+# Seaborn-deep muted palette — matches the reference chart family
 PALETTE = {
     "DESQ":                            "#4C72B0",   # muted blue (thick primary)
     "DRL Ensemble":                   "#DD8452",   # muted orange
@@ -327,7 +327,7 @@ def main() -> int:
         cum.to_csv(OUT_DIR / f"{u}_comparison.csv", float_format="%.6f")
         print(f"[OK] {u}: {png.name} + {u}_comparison.csv")
 
-    # ---- Main 1?3 combined figure ----------------------------------------
+    # ---- Main 1×3 combined figure ----------------------------------------
     fig, axes = plt.subplots(1, 3, figsize=(17, 5.4))
     for i, (u, series) in enumerate(universe_series.items()):
         U = UNIVERSES[u]
@@ -343,7 +343,7 @@ def main() -> int:
         for hi, li in zip(h, l):
             if li not in seen:
                 seen.add(li); all_h.append(hi); all_l.append(li)
-    fig.suptitle(f"Cumulative Return \u2014 Four Methods across three universes   "
+    fig.suptitle(f"Cumulative Return — Four Methods across three universes   "
                  f"{TRADE_START.date()} \u2192 {TRADE_END.date()}",
                  y=1.02, fontsize=12)
     fig.legend(all_h, all_l, loc="lower center", ncol=len(all_l),
@@ -383,7 +383,7 @@ def main() -> int:
     for u in UNIVERSES:
         for _, r in stats[stats["universe"] == u].iterrows():
             def _f(x, prec=2):
-                return f"{x:+.{prec}f}" if isinstance(x, float) and not np.isnan(x) else "??"
+                return f"{x:+.{prec}f}" if isinstance(x, float) and not np.isnan(x) else "—"
             md_lines.append(
                 f"| {r['universe_label']} | {r['method']} | "
                 f"{r['final_$']:,.0f} | {_f(r['total_ret_%'])} | "
