@@ -9,6 +9,20 @@ Reported as **DESQ** (*Dynamic-flooding Transformer Ensembles*) in the
 combined portfolio backtests. Files on disk are still named `DES` for
 historical continuity.
 
+## End-to-end training pipeline
+
+The seven stages below are the complete per-stock workflow for the US
+extension, annotated with the exact script in this repository that
+implements each stage. The `next aspect` loop repeats stages 2–5 for each
+of the four US feature aspects (`fundamental`, `moment`, `tech_trend`,
+`macro`); after all four aspects are trained, stages 6–7 run once. Stage 7
+additionally applies a CUSUM directional filter before the price /
+market-weighted portfolio backtest.
+
+![DESQ US-extension training pipeline (7 stages, with code annotations)](docs/training_pipeline.png)
+
+Regenerate the figure with `python us/docs/_render_training_pipeline.py`.
+
 ## Layout
 
 ```
