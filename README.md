@@ -8,6 +8,14 @@ A market-timing framework for the TWSE Top-50 constituents that stacks:
 
 The pipeline uses **walk-forward rolling validation** (4:1 train:val ratio) on 5 feature aspects (no sentiment, no CUSUM).
 
+## End-to-end training pipeline
+
+The seven stages below are the complete per-stock workflow, annotated with the exact script in this repository that implements each stage. The `next aspect` loop repeats stages 2–5 for each of the five feature aspects; after all five aspects are trained, stages 6–7 run once.
+
+![End-to-end training pipeline (7 stages, with code annotations)](docs/training_pipeline.png)
+
+Regenerate the figure with `python docs/_render_training_pipeline.py`.
+
 ## Experimental results
 
 Out-of-sample back-tests over the 2024-01-02 to 2026-03-31 test window. DESQ (blue) is the KNORA-E ensemble of the five ATT+Dynamic-Flooding aspects with the signal-pattern trader; the black line is a passive buy-and-hold benchmark.
