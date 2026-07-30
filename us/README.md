@@ -1,11 +1,11 @@
-# DESQ â€” US Extension (Dow 30 / S&P 100 / NASDAQ 100)
+# DESQ ??US Extension (Dow 30 / S&P 100 / NASDAQ 100)
 
 Extension of the TW-50 pipeline in this repo to US equities. Same
 **ATT + Dynamic Flooding + Dynamic Ensemble Selection (KNORA-E)**
 methodology, adapted to US markets with a rolling walk-forward
-validation window (train up to 2023-12-31, test 2024-01-02 â†’ 2026-03-31).
+validation window (train up to 2023-12-31, test 2024-01-02 ??2026-03-31).
 
-Reported as **DTE** (*Dynamic-flooding Transformer Ensembles*) in the
+Reported as **DESQ** (*Dynamic-flooding Transformer Ensembles*) in the
 combined portfolio backtests. Files on disk are still named `DES` for
 historical continuity.
 
@@ -13,39 +13,39 @@ historical continuity.
 
 ```
 us/
-â”œâ”€â”€ AITree_US.py / AIScore_US.py          # Per-index score & tree visualisation
-â”œâ”€â”€ ATT+Flood_US.py                       # Bayesian hyper-param search (static flooding)
-â”œâ”€â”€ ATT+Dflooding_US.py                   # Retrain with Dynamic Flooding callback
-â”œâ”€â”€ DES_update_ATT_US.py                  # KNORA-E dynamic ensemble & DES predictions
-â”œâ”€â”€ CumsumPro_US.py                       # CUSUM-based signal filter
-â”œâ”€â”€ FeatureUS_US.py                       # Feature engineering (4 aspects)
-â”œâ”€â”€ Backtest_Portfolio_US.py              # Portfolio backtest engine (price/market-weighted)
-â”œâ”€â”€ run_us_daily_pipeline.py              # End-to-end daily inference driver
-â”‚
-â”œâ”€â”€ baselines/                            # 4-method Ã— 3-universe paper reproduction
-â”‚   â”œâ”€â”€ combined/                         # Combined 1Ã—3 chart + stats CSV/MD
-â”‚   â”œâ”€â”€ dsr_yang/                         # Yang 2018 IEEE â€” Dynamic Stock Recommendation
-â”‚   â”œâ”€â”€ mi_abbade/                        # Abbade & Costa 2026 â€” MACE (Almgren-Chriss)
-â”‚   â””â”€â”€ summary_all_papers.md             # Full backtest summary
-â”‚
-â”œâ”€â”€ model_pred_DES_US/                    # DES per-ticker prediction CSVs (177 tickers)
-â”œâ”€â”€ cumSum_prob_12/                       # CUSUM filter tables (win=12)
-â”œâ”€â”€ selection/                            # Feature-aspect selection metadata
-â”œâ”€â”€ scalar/                               # Fitted feature scalers
-â”œâ”€â”€ evaluation/                           # Per-ticker evaluation metrics
-â”œâ”€â”€ model_output_US/                      # Per-ticker training curves (PNG)
-â”œâ”€â”€ backtest_portfolio_US/                # Portfolio backtest artefacts
-â””â”€â”€ .github/skills/                       # Copilot skills (pipeline docs)
+?œâ??€ AITree_US.py / AIScore_US.py          # Per-index score & tree visualisation
+?œâ??€ ATT+Flood_US.py                       # Bayesian hyper-param search (static flooding)
+?œâ??€ ATT+Dflooding_US.py                   # Retrain with Dynamic Flooding callback
+?œâ??€ DES_update_ATT_US.py                  # KNORA-E dynamic ensemble & DES predictions
+?œâ??€ CumsumPro_US.py                       # CUSUM-based signal filter
+?œâ??€ FeatureUS_US.py                       # Feature engineering (4 aspects)
+?œâ??€ Backtest_Portfolio_US.py              # Portfolio backtest engine (price/market-weighted)
+?œâ??€ run_us_daily_pipeline.py              # End-to-end daily inference driver
+??
+?œâ??€ baselines/                            # 4-method ? 3-universe paper reproduction
+??  ?œâ??€ combined/                         # Combined 1?3 chart + stats CSV/MD
+??  ?œâ??€ dsr_yang/                         # Yang 2018 IEEE ??Dynamic Stock Recommendation
+??  ?œâ??€ mi_abbade/                        # Abbade & Costa 2026 ??MACE (Almgren-Chriss)
+??  ?”â??€ summary_all_papers.md             # Full backtest summary
+??
+?œâ??€ model_pred_DES_US/                    # DES per-ticker prediction CSVs (177 tickers)
+?œâ??€ cumSum_prob_12/                       # CUSUM filter tables (win=12)
+?œâ??€ selection/                            # Feature-aspect selection metadata
+?œâ??€ scalar/                               # Fitted feature scalers
+?œâ??€ evaluation/                           # Per-ticker evaluation metrics
+?œâ??€ model_output_US/                      # Per-ticker training curves (PNG)
+?œâ??€ backtest_portfolio_US/                # Portfolio backtest artefacts
+?”â??€ .github/skills/                       # Copilot skills (pipeline docs)
 ```
 
-## Portfolio backtest â€” total return, 2024-01-02 â†’ 2026-03-30
+## Portfolio backtest ??total return, 2024-01-02 ??2026-03-30
 
 | Method | Dow 30 | S&P 100 | NASDAQ 100 |
 |---|---:|---:|---:|
-| **DTE (ours)**                            | **+68.62 %** | **+89.50 %** | **+92.06 %** |
-| DSR â€” Yang 2018                           | +11.78 % | +64.45 % | +79.45 % |
-| DRL Ensemble â€” Yang 2020                  | +28.57 % | +25.82 % | +51.60 % |
-| MACE â€” Abbade & Costa 2026                | +65.53 % | +34.25 % | +40.96 % |
+| **DESQ (ours)**                            | **+68.62 %** | **+89.50 %** | **+92.06 %** |
+| DSR ??Yang 2018                           | +11.78 % | +64.45 % | +79.45 % |
+| DRL Ensemble ??Yang 2020                  | +28.57 % | +25.82 % | +51.60 % |
+| MACE ??Abbade & Costa 2026                | +65.53 % | +34.25 % | +40.96 % |
 | Benchmark index                           | +19.89 % (^DJI) | +38.99 % (^OEX) | +38.74 % (^NDX) |
 
 Full stats table (Sharpe, Sortino, MaxDD, Calmar): [baselines/combined/combined_stats.md](baselines/combined/combined_stats.md).
@@ -55,7 +55,7 @@ Full stats table (Sharpe, Sortino, MaxDD, Calmar): [baselines/combined/combined_
 The `model_pred_DES_US/` predictions and `cumSum_prob_12/` filters
 included here are sufficient to reproduce every plot and statistic under
 `baselines/`. Model weights (~28 GB PyTorch checkpoints) and raw
-feature matrices are **not** included â€” they can be regenerated from the
+feature matrices are **not** included ??they can be regenerated from the
 scripts using Alpha Vantage / yfinance data (Alpha Vantage key must be
 placed in `.av_key` at the workspace root, never committed).
 
@@ -64,7 +64,7 @@ placed in `.av_key` at the workspace root, never committed).
 | Split | Range |
 | --- | --- |
 | Training | up to 2023-12-31 |
-| Test / trade | 2024-01-02 â†’ 2026-03-30 |
+| Test / trade | 2024-01-02 ??2026-03-30 |
 | Validation | rolling last 20 % of train (5 folds) |
 
 ## Feature aspects (4)
