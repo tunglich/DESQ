@@ -109,7 +109,7 @@ def main() -> None:
     fig.patch.set_facecolor(BG)
     ax.set_facecolor(BG)
     ax.set_xlim(0, 10)
-    ax.set_ylim(0.0, 13.4)
+    ax.set_ylim(-0.15, 13.4)
     ax.axis("off")
 
     _box(
