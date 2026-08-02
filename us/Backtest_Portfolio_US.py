@@ -217,7 +217,7 @@ def compute_market_weights(
 
 
 # --------------------------------------------------------------------------- #
-# Single-stock trade simulation (extracted from DES_update_ATT_US.plot_backtest)
+# Single-stock trade experiment (extracted from DES_update_ATT_US.plot_backtest)
 # --------------------------------------------------------------------------- #
 def _make_signals(
     AGG_DES1: pd.Series,
@@ -269,7 +269,7 @@ def _make_signals(
     )
 
 
-def simulate_single_stock(
+def run_single_stock_experiment(
     prob: pd.Series,
     stock_price: pd.DataFrame,
     cusum: pd.Series | None,
@@ -299,7 +299,7 @@ def simulate_single_stock(
 
     n = len(idx)
     if n < 2:
-        raise RuntimeError("simulate_single_stock: <2 rows after alignment")
+        raise RuntimeError("run_single_stock_experiment: <2 rows after alignment")
 
     AGG_DES1 = (prob > threshold).astype(int)
     sig_buy, sig_sell = _make_signals(AGG_DES1, long, short, short_to_long, long_to_short)
@@ -463,10 +463,10 @@ def run_one(
         src = share_sources.get(t, "-")
         print(f"        {t:6s}  weight={w*100:6.2f}%  init=${initial_caps[t]:>15,.2f}  src={src}")
 
-    # ---- Per-stock simulation ----
+    # ---- Per-stock experiment ----
     per_eq: dict[str, pd.Series] = {}
     per_stats: dict[str, dict] = {}
-    print(f"[INFO] simulating per-stock trades ...")
+    print(f"[INFO] running per-stock trade experiments ...")
     for t in valid:
         try:
             prob = pd.read_csv(
@@ -502,7 +502,7 @@ def run_one(
                     print(f"  [WARN] {t}: dividend fetch failed ({e}); skipping div in TR")
                     divs = None
 
-            res = simulate_single_stock(
+            res = run_single_stock_experiment(
                 prob=prob,
                 stock_price=sp,
                 cusum=cusum,

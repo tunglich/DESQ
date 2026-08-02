@@ -293,7 +293,7 @@ def build_signals(prob_up: pd.Series, threshold: float,
 def backtest(stock_id: str, prob_up: pd.Series, stock_price: pd.DataFrame,
               threshold: float, long: int, short: int, s2l: int, l2s: int
               ) -> dict:
-    """Simulate open-price fills. Buy/sell decisions driven purely by DES signal."""
+    """Empirical open-price fills. Buy/sell decisions driven purely by DES signal."""
     joined_idx = prob_up.index.intersection(stock_price.index)
     if len(joined_idx) < 5:
         raise RuntimeError(f'{stock_id}: joined DES/price index too short ({len(joined_idx)})')

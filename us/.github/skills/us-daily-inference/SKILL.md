@@ -300,7 +300,7 @@ foreach ($u in 'dow30','sox30','ndx100','sp100') {
   `run_us_daily_pipeline.py`.
 - After any change to those files, run this repro:
   ```powershell
-  # simulate "pipeline runs before US close" by supplying an end BEFORE
+  # experiment: "pipeline runs before US close" by supplying an end BEFORE
   # data.index.max()
   conda run -n finlabUS --no-capture-output python prediction_update_US.py `
     --tickers AAPL --start 2026-07-16 --end 2026-07-16
