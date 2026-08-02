@@ -1,21 +1,24 @@
 # =============================================================================
 # DES_update_ATT_US.py
-# 功能：美股 (Dow 30) 版 Dynamic Ensemble Selection (DES) 流程。
-#       讀取 4 個面向 (fundamental, tech_trend, moment, macro) 的 ATT 預測結果，
-#       訓練 KNORAE 集成模型並產出 DES 預測 CSV、回測圖與績效報告。
+# Purpose: US (Dow 30) Dynamic Ensemble Selection (DES) pipeline.
+#       Reads ATT predictions for 4 aspects (fundamental, tech_trend, moment, macro),
+#       fits a KNORAE ensemble, and produces DES prediction CSVs plus
+#       backtest plots and performance reports.
 #
-# 與台股版 DES_update_ATT-sentiment.py 的差異：
-#   * 面向：4 個 (fundamental, tech_trend, moment, macro)，不含 trade/sentiment
-#   * 模型輸出：DES_model_US/  (DES pkl) 、 RF_model_US/  (RF pkl)
-#   * 預測輸出：model_pred_DES_US/  、  model_pred_RF_US/
-#   * CUSUM 來源：
-#       out_dir   = cumSum_prob_12/cusum_{ticker}.csv  (方向 filter)
-#       out_dir_P = cumSum_prob_6/cusum_{ticker}.csv   (機率混合)
-#       兩者皆由 CumsumPro_US.py 產生，值為 (1-prob)*sign(cumulative)
-#   * 股價：feature._us_data.load_price_frames(tickers) (yfinance + 快取)
-#   * 標籤：feature/fundamental_{ticker}.csv 的 y_20 欄
-#   * 美股交易慣例：按股 (不再 *1000)、零佣金 (BUY_FEE=SELL_FEE=0)、初始 1M USD
-#   * Ticker 不再有 .TT/.TW 後綴；CmoneyFactor 與 Stock_name.csv 依賴移除
+# Differences vs. the TW DES_update_ATT-sentiment.py:
+#   * Aspects: 4 (fundamental, tech_trend, moment, macro), no trade/sentiment
+#   * Model outputs: DES_model_US/ (DES pkl), RF_model_US/ (RF pkl)
+#   * Prediction outputs: model_pred_DES_US/ , model_pred_RF_US/
+#   * CUSUM sources:
+#       out_dir   = cumSum_prob_12/cusum_{ticker}.csv  (directional filter)
+#       out_dir_P = cumSum_prob_6/cusum_{ticker}.csv   (probability blend)
+#       Both produced by CumsumPro_US.py, value = (1-prob)*sign(cumulative)
+#   * Prices: feature._us_data.load_price_frames(tickers) (yfinance + cache)
+#   * Label: y_20 column of feature/fundamental_{ticker}.csv
+#   * US market convention: per-share (no *1000), zero commission
+#     (BUY_FEE=SELL_FEE=0), initial capital 1M USD
+#   * Tickers no longer carry .TT/.TW suffixes; CmoneyFactor and
+#     Stock_name.csv dependencies removed
 # =============================================================================
 
 import os
@@ -28,7 +31,7 @@ matplotlib.use(os.environ.get('MPLBACKEND', 'TkAgg'))
 import matplotlib.pyplot as plt
 
 
-# --- CJK 字型 (圖表中混雜中文時備援) -------------------------------------- #
+# --- CJK font stack (fallback when charts contain Chinese labels) -------- #
 def _configure_cjk_font():
     from matplotlib import font_manager
     candidates = [
@@ -71,7 +74,7 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 
 
-# --- deslib 0.3.7 vs scikit-learn>=1.7 相容修補 --------------------------- #
+# --- deslib 0.3.7 vs scikit-learn>=1.7 compatibility shim ---------------- #
 import sklearn.base
 if not hasattr(sklearn.base.BaseEstimator, '_validate_data'):
     from sklearn.utils.validation import validate_data as _sklearn_validate_data
@@ -79,7 +82,7 @@ if not hasattr(sklearn.base.BaseEstimator, '_validate_data'):
 
 
 # =============================================================================
-# Workspace / 路徑設定 (workspace-relative; WSL 與 Windows 通用)
+# Workspace / path setup (workspace-relative; works on WSL and Windows)
 # =============================================================================
 _THIS_DIR = Path(__file__).resolve().parent
 if str(_THIS_DIR) not in sys.path:
@@ -112,29 +115,29 @@ for _p in (DES_MODEL_DIR, PRED_DES_DIR, RF_MODEL_DIR, PRED_RF_DIR,
 
 
 # =============================================================================
-# 全域參數
+# Global parameters
 # =============================================================================
 train_start = '2007-08-01'
 train_end   = '2025-12-31'
 test_start  = '2026-01-01'
 now = datetime.strftime(datetime.now(), '%Y-%m-%d')
 
-# 美股 4 個面向 (固定順序，影響 ablation letters)
+# US 4 aspects (fixed order; drives ablation letters)
 FEATURE_ORDER = ['fundamental', 'tech_trend', 'moment', 'macro']
 sub_cats = FEATURE_ORDER.copy()
 
-# CUSUM 來源 (workspace-relative; 由 CumsumPro_US.py 產生)
-CUSUM_DIR_SIGN = _THIS_DIR / 'cumSum_prob_12'   # 方向 filter
-CUSUM_DIR_PROB = _THIS_DIR / 'cumSum_prob_6'    # 機率混合
+# CUSUM sources (workspace-relative; produced by CumsumPro_US.py)
+CUSUM_DIR_SIGN = _THIS_DIR / 'cumSum_prob_12'   # directional filter
+CUSUM_DIR_PROB = _THIS_DIR / 'cumSum_prob_6'    # probability blend
 out_dir   = str(CUSUM_DIR_SIGN)
 out_dir_P = str(CUSUM_DIR_PROB)
 
-# 美股交易慣例 (per-share, 零佣金, 1M USD 初始資金)
+# US market convention (per-share, zero commission, 1M USD initial capital)
 BUY_FEE         = 0.0
 SELL_FEE        = 0.0
 INITIAL_CAPITAL = 1_000_000.0  # USD
 
-# Dow 30 公司名稱對照 (顯示用)
+# Dow 30 company-name lookup (display only)
 DOW30_NAME = {
     'AAPL': 'Apple', 'AMGN': 'Amgen', 'AMZN': 'Amazon', 'AXP': 'American Express',
     'BA': 'Boeing', 'CAT': 'Caterpillar', 'CRM': 'Salesforce', 'CSCO': 'Cisco',
@@ -146,14 +149,15 @@ DOW30_NAME = {
     'VZ': 'Verizon', 'WMT': 'Walmart',
 }
 
-# 特定 ticker 的資料別名：輸出仍維持原 ticker，僅在讀取輸入資料時 fallback。
+# Data alias for specific tickers: outputs keep the original ticker; only
+# the input-side reads fall back to the alias.
 TICKER_DATA_ALIAS = {
     'GOOG': 'GOOGL',
 }
 
 
 def compute_letters(used_feats):
-    """依固定順序將使用中特徵轉成短碼，作為 ablation cache key。"""
+    """Encode active features in fixed order into a short code used as the ablation cache key."""
     ordered = [f for f in FEATURE_ORDER if f in used_feats]
     return ''.join(f[:2] for f in ordered)
 
@@ -175,7 +179,7 @@ def _predict_pos_proba(estimator, X):
 
     classes = list(getattr(estimator, 'classes_', []))
     if proba.shape[1] == 1:
-        # 單一類別模型：若唯一類別是 1，則機率即為該欄；否則全為 0。
+        # Single-class model: probability is 1 if that class is 1, else 0.
         if classes and classes[0] == 1:
             return proba[:, 0]
         return np.zeros(proba.shape[0], dtype='float64')
@@ -193,7 +197,7 @@ def _get_shap_module():
         import shap
         return shap
     except Exception as e:
-        print(f"[SHAP][WARN] shap 無法載入，略過 explainability：{e}")
+        print(f"[SHAP][WARN] failed to import shap, skipping explainability: {e}")
         return None
 
 
@@ -202,7 +206,7 @@ def build_kernel_explainer(des_model, X_train, background_k=50):
     if shap is None:
         return None
     if X_train is None or len(X_train) == 0:
-        raise ValueError("X_train 為空，無法建立 SHAP 背景資料")
+        raise ValueError("X_train is empty; cannot build SHAP background data")
     bg_k = max(1, min(int(background_k), len(X_train)))
     background = shap.kmeans(np.asarray(X_train, dtype='float64'), bg_k)
     explainer = shap.KernelExplainer(
@@ -216,7 +220,7 @@ def compute_shap_local(explainer, X_target, chunk_size=20, nsamples='auto'):
     if explainer is None:
         return None
     if X_target is None or len(X_target) == 0:
-        raise ValueError("X_target 為空，無法計算 SHAP")
+        raise ValueError("X_target is empty; cannot compute SHAP")
     total = len(X_target)
     local_blocks = []
     for start in range(0, total, max(1, int(chunk_size))):
@@ -233,7 +237,7 @@ def compute_shap_local(explainer, X_target, chunk_size=20, nsamples='auto'):
 
 def compute_shap_global(local_shap_df):
     if local_shap_df is None or local_shap_df.empty:
-        raise ValueError("local_shap_df 為空，無法計算 global importance")
+        raise ValueError("local_shap_df is empty; cannot compute global importance")
     g = np.abs(local_shap_df).mean(axis=0).sort_values(ascending=False)
     return pd.DataFrame({'feature': g.index, 'mean_abs_shap': g.values})
 
@@ -250,7 +254,7 @@ def save_shap_summary_plot(tag, X_target, local_shap_df):
     local_aligned.index = pd.to_datetime(local_aligned.index)
     common_idx = X_target.index.intersection(local_aligned.index)
     if len(common_idx) == 0:
-        raise ValueError("X_target 與 local_shap_df 無重疊日期，無法繪製 summary")
+        raise ValueError("no overlapping dates between X_target and local_shap_df; cannot render summary")
 
     x_aligned = X_target.loc[common_idx]
     shap_aligned = local_aligned.loc[common_idx]
@@ -261,7 +265,7 @@ def save_shap_summary_plot(tag, X_target, local_shap_df):
     fig.tight_layout()
     fig.savefig(summary_png, facecolor='white', dpi=SHAP_FIG_DPI)
     plt.close(fig)
-    print(f"[SHAP] 輸出完成: {summary_png}")
+    print(f"[SHAP] wrote: {summary_png}")
 
 
 def save_shap_artifacts(tag, explainer, X_target, local_shap_df, global_df, waterfall_row=0):
@@ -324,25 +328,25 @@ def save_shap_artifacts(tag, explainer, X_target, local_shap_df, global_df, wate
     force_fig.savefig(force_png, facecolor='white', dpi=SHAP_FIG_DPI)
     plt.close(force_fig)
 
-    print(f"[SHAP] 輸出完成: {local_csv}")
-    print(f"[SHAP] 輸出完成: {global_csv}")
-    print(f"[SHAP] 輸出完成: {waterfall_png}")
-    print(f"[SHAP] 輸出完成: {force_png}")
+    print(f"[SHAP] wrote: {local_csv}")
+    print(f"[SHAP] wrote: {global_csv}")
+    print(f"[SHAP] wrote: {waterfall_png}")
+    print(f"[SHAP] wrote: {force_png}")
 
 
 # =============================================================================
-# 美股股價載入 (一次抓全部 ticker; 後續用 pivot 取單檔)
+# US price loader (fetch all tickers once; slice per-ticker via pivot below)
 # =============================================================================
 _PRICE_CACHE: dict = {}
 
 
 def get_stock_price(ticker: str) -> pd.DataFrame:
-    """回傳單檔 OHLCV DataFrame (columns: Open/High/Low/Close/Volume)。"""
+    """Return single-ticker OHLCV DataFrame (columns: Open/High/Low/Close/Volume)."""
     if ticker in _PRICE_CACHE:
         return _PRICE_CACHE[ticker]
     frames = load_price_frames([ticker])
     if ticker not in frames['Close'].columns:
-        raise RuntimeError(f"{ticker}: 無法從 yfinance 取得股價")
+        raise RuntimeError(f"{ticker}: failed to fetch prices from yfinance")
     out = pd.DataFrame({
         'Open':   frames['Open'][ticker],
         'High':   frames['High'][ticker],
@@ -358,7 +362,7 @@ def get_stock_price(ticker: str) -> pd.DataFrame:
 
 
 # =============================================================================
-# 回測 (美股慣例：per-share, 零佣金, INITIAL_CAPITAL USD)
+# Backtest (US convention: per-share, zero commission, INITIAL_CAPITAL USD)
 # =============================================================================
 def plot_backtest(stock_id, stock_name, y_pred, stock_price,
                   long, short, short_to_long, long_to_short, threshold,
@@ -366,7 +370,7 @@ def plot_backtest(stock_id, stock_name, y_pred, stock_price,
     AGG_DES1 = (y_pred > threshold).astype(int)
     df = pd.DataFrame()
 
-    # --- 產生買入信號 ---
+    # --- Generate buy signals ---
     if AGG_DES1.iloc[0] == 0:
         sig_buy = []
         for i in range(len(AGG_DES1)):
@@ -392,7 +396,7 @@ def plot_backtest(stock_id, stock_name, y_pred, stock_price,
             else:
                 sig_buy.append(0)
 
-    # --- 產生賣出信號 ---
+    # --- Generate sell signals ---
     sig_sell = []
     for i in range(len(AGG_DES1)):
         pat = [1] * long_to_short + [0] * short
@@ -416,8 +420,8 @@ def plot_backtest(stock_id, stock_name, y_pred, stock_price,
     acc_buy = 0
     acc_sell = 0
 
-    # 美股按股 (移除 *1000)，零佣金 (BUY_FEE = SELL_FEE = 0)
-    if prob == 0:  # 啟用 CUSUM 方向 filter
+    # US per-share (no *1000), zero commission (BUY_FEE = SELL_FEE = 0)
+    if prob == 0:  # CUSUM directional filter enabled
         for i in range(1, len(sig_buy)):
             raw_v = cumSum.iloc[i]
             cusum_v = float(np.asarray(raw_v).flatten()[0]) if hasattr(raw_v, 'values') else float(raw_v)
@@ -442,7 +446,7 @@ def plot_backtest(stock_id, stock_name, y_pred, stock_price,
                 cash.iloc[i] = cash.iloc[i-1]
                 shares.iloc[i] = shares.iloc[i-1]
                 asset.iloc[i] = cash.iloc[i] + shares.iloc[i] * stock_price.iloc[i, 3]
-    else:  # 純信號模式
+    else:  # pure signal mode
         for i in range(1, len(sig_buy)):
             if sig_buy.iloc[i-1] == 1 and shares.iloc[i-1] == 0:
                 shares.iloc[i] = cash.iloc[i-1] // stock_price.iloc[i, 0]
@@ -535,7 +539,7 @@ def plot_backtest(stock_id, stock_name, y_pred, stock_price,
 
 
 # =============================================================================
-# findBestRF: RandomForest 超參數搜尋
+# findBestRF: RandomForest hyperparameter search
 # =============================================================================
 def findBestRF(X_train, y_train):
     n_estimators = [int(x) for x in np.linspace(start=200, stop=2000, num=10)]
@@ -568,7 +572,7 @@ def findBestRF(X_train, y_train):
 
 
 # =============================================================================
-# update_DES: 主要訓練/載入流程
+# update_DES: main training / loading pipeline
 # =============================================================================
 def update_DES(tickers, train_end, used_feats=None, force_retrain=False,
                return_explain_context=False):
@@ -579,7 +583,7 @@ def update_DES(tickers, train_end, used_feats=None, force_retrain=False,
 
     for stock_id in tickers:
         data_ticker = TICKER_DATA_ALIAS.get(stock_id, stock_id)
-        # --- 讀取 4 個面向的 ATT 預測結果 ---
+        # --- Load ATT predictions for the 4 aspects ---
         X_all = pd.DataFrame()
         present_feats = []
         for cat in feats:
@@ -600,29 +604,30 @@ def update_DES(tickers, train_end, used_feats=None, force_retrain=False,
             present_feats.append(cat)
 
         if X_all.shape[1] == 0:
-            raise RuntimeError(f"{stock_id}: 無任何 ATT 預測檔可讀取 (experiment/ATT_*_{stock_id})")
+            raise RuntimeError(f"{stock_id}: no ATT prediction files available (experiment/ATT_*_{stock_id})")
 
         X_all.index.name = 'Date'
         X_all.columns = present_feats
         X_all.dropna(how='all', inplace=True)
-        # 不同 facet 起始日可能不同 (e.g. moment 比 fundamental 早)，
-        # concat(axis=1) 不會自動排序，需手動排序避免後續 .loc[start:end] 失敗。
+        # Different facets may start on different dates (e.g. moment earlier than
+        # fundamental); concat(axis=1) does not sort automatically, so we sort
+        # explicitly here to keep later .loc[start:end] slices safe.
         X_all = X_all.sort_index()
         X_all = X_all.ffill().bfill().fillna(0.5)
         X_all.index = pd.to_datetime(X_all.index)
         X_all = X_all.astype('float64')
 
-        # 標籤：feature/fundamental_{ticker}.csv 的 y_20
+        # Label: y_20 from feature/fundamental_{ticker}.csv
         y_path = FEATURE_ROOT / f"fundamental_{stock_id}.csv"
         if not y_path.exists() and data_ticker != stock_id:
             alt_y_path = FEATURE_ROOT / f"fundamental_{data_ticker}.csv"
             if alt_y_path.exists():
-                print(f"[INFO] {stock_id}: 使用特徵別名 {data_ticker} 讀取標籤")
+                print(f"[INFO] {stock_id}: using feature alias {data_ticker} to load labels")
                 y_path = alt_y_path
         y_all = pd.read_csv(y_path, index_col=0, parse_dates=True)['y_20']
         y_all = y_all.reindex(X_all.index)
 
-        # 股價 (yfinance + 快取)
+        # Prices (yfinance + cache)
         stock_price = get_stock_price(stock_id).loc['2021-12-31':]
         stock_price.index.name = 'Date'
 
@@ -708,11 +713,11 @@ def update_DES(tickers, train_end, used_feats=None, force_retrain=False,
 
 
 # =============================================================================
-# 繪圖：信號綜覽 (股價 + DES_output + 各面向)
+# Plot: signal overview (price + DES_output + per-aspect)
 # =============================================================================
-# 可由環境變數覆寫，方便 batch / headless 執行：
-#   SHOW_FIG=0  -> 不開互動視窗 (不呼叫 plt.show)
-#   SAVE_FIG=0  -> 不寫出 PNG (backtest_*.png / ensemble_*.png)
+# Overridable via env vars for batch / headless runs:
+#   SHOW_FIG=0  -> skip interactive window (do not call plt.show)
+#   SAVE_FIG=0  -> skip PNG output (backtest_*.png / ensemble_*.png)
 show_fig = os.environ.get('SHOW_FIG', '1') != '0'
 save_fig = os.environ.get('SAVE_FIG', '1') != '0'
 
@@ -839,7 +844,7 @@ def plot_academic_price_features(stock_id, stock_name, stock_price, X_all, thres
     if used_feats is not None:
         selected_cols = [f for f in selected_cols if f in used_feats]
     if len(selected_cols) == 0:
-        print('[PLOT][WARN] 無可用面向可繪製，略過學術風格圖。')
+        print('[PLOT][WARN] no aspects available to plot; skipping academic-style figure.')
         return None
 
     n_panels = 1 + len(selected_cols)
@@ -884,7 +889,7 @@ def plot_academic_price_features(stock_id, stock_name, stock_price, X_all, thres
     fig.savefig(out_png, dpi=300, facecolor='white', bbox_inches='tight')
     if not show_fig:
         plt.close(fig)
-    print(f"[PLOT] 學術風格圖輸出完成: {out_png}")
+    print(f"[PLOT] academic-style figure written: {out_png}")
     return str(out_png)
 
 
@@ -893,7 +898,7 @@ def re_DES(x):
 
 
 # =============================================================================
-# 主程式
+# Main
 # =============================================================================
 span = 1
 long_d = 1
@@ -903,7 +908,7 @@ long_to_short = 0
 threshold = 0.50
 period = ['2019-12-31']
 eval_start = '2021-12-31'
-eval_end = None  # None → 動態取 DES 最後一天
+eval_end = None  # None -> take the last DES date at runtime
 
 
 def _parse_drop(drop_str):
@@ -912,35 +917,35 @@ def _parse_drop(drop_str):
     drop = [x.strip() for x in str(drop_str).split(',') if x.strip()]
     invalid = [d for d in drop if d not in FEATURE_ORDER]
     if invalid:
-        raise ValueError(f"未知特徵：{invalid}；可選：{FEATURE_ORDER}")
+        raise ValueError(f"unknown feature: {invalid}; choose from {FEATURE_ORDER}")
     if len(drop) >= len(FEATURE_ORDER):
-        raise ValueError("不能 drop 全部特徵，至少要保留 1 個")
+        raise ValueError("cannot drop every feature; at least one must be kept")
     used = [f for f in FEATURE_ORDER if f not in drop]
     return used
 
 
 def main():
     while True:
-        ticker = input("Please input US ticker (輸入 0 離開): ").strip().upper()
+        ticker = input("Please input US ticker (0 to quit): ").strip().upper()
         if ticker == '0' or ticker == '':
-            print("結束程式。")
+            print("Exit.")
             break
 
-        print(f"可用特徵：{', '.join(FEATURE_ORDER)}")
-        drop_in = input("要 drop 的特徵 (逗號分隔；直接 Enter = 全部使用): ").strip()
+        print(f"Available features: {', '.join(FEATURE_ORDER)}")
+        drop_in = input("Features to drop (comma-separated; Enter = use all): ").strip()
         try:
             used_feats = _parse_drop(drop_in)
         except Exception as e:
-            print(f"[ERROR] drop 特徵輸入錯誤: {e}")
+            print(f"[ERROR] invalid drop input: {e}")
             continue
 
-        cusum_in = input("啟用 CUSUM filter? (1=是 / 2=否) [1]: ").strip()
+        cusum_in = input("Enable CUSUM filter? (1=yes / 2=no) [1]: ").strip()
         use_cusum_filter = True if cusum_in == '' else cusum_in in ('1', 'y', 'Y', 'yes', 'true')
 
-        retrain_in = input("強制重訓 DES/RF? (1=是 / 2=否) [2]: ").strip()
+        retrain_in = input("Force retrain DES/RF? (1=yes / 2=no) [2]: ").strip()
         force_retrain = False if retrain_in == '' else retrain_in in ('1', 'y', 'Y', 'yes', 'true')
 
-        shap_in = input("啟用 SHAP explainer? (1=是 / 2=否) [2]: ").strip()
+        shap_in = input("Enable SHAP explainer? (1=yes / 2=no) [2]: ").strip()
         use_shap = False if shap_in == '' else shap_in in ('1', 'y', 'Y', 'yes', 'true')
 
         force_shap_recompute = False
@@ -950,9 +955,9 @@ def main():
         shap_waterfall_idx = -1
 
         if use_shap:
-            shap_force_in = input("強制重算 SHAP? (1=是 / 2=否) [2]: ").strip()
+            shap_force_in = input("Force recompute SHAP? (1=yes / 2=no) [2]: ").strip()
             force_shap_recompute = False if shap_force_in == '' else shap_force_in in ('1', 'y', 'Y', 'yes', 'true')
-            bg_in = input("SHAP 背景 kmeans 中心數 [50]: ").strip()
+            bg_in = input("SHAP background kmeans centers [50]: ").strip()
             try:
                 shap_background_k = int(bg_in) if bg_in else 50
             except ValueError:
@@ -970,13 +975,13 @@ def main():
                     shap_nsamples = int(ns_in)
                 except ValueError:
                     shap_nsamples = 'auto'
-            wf_in = input("waterfall 樣本索引 (-1 = 最後一筆) [-1]: ").strip()
+            wf_in = input("waterfall sample index (-1 = last row) [-1]: ").strip()
             try:
                 shap_waterfall_idx = int(wf_in) if wf_in else -1
             except ValueError:
                 shap_waterfall_idx = -1
 
-        thr_in = input(f"DES 信號門檻 (0.50~0.95) [{threshold}]: ").strip()
+        thr_in = input(f"DES signal threshold (0.50~0.95) [{threshold}]: ").strip()
         try:
             _thr = float(thr_in) if thr_in else threshold
         except ValueError:
@@ -1014,7 +1019,7 @@ def main():
 
             stock_price = stock_price.loc[eval_start:_eval_end].copy()
             if stock_price.empty:
-                raise RuntimeError(f"{stock_id_display}: 指定期間 {eval_start}~{_eval_end} 無股價資料")
+                raise RuntimeError(f"{stock_id_display}: no price data in requested window {eval_start}~{_eval_end}")
 
             AGG_DES = AGG_DES[~AGG_DES.index.duplicated(keep='last')]
             AGG_DES = AGG_DES.ewm(span=span, adjust=False).mean()
@@ -1026,7 +1031,7 @@ def main():
             AGG_RF = AGG_RF.reindex(stock_price.index).ffill().bfill()
             print(f"[DATE] stock_price range = {stock_price.index.min().date()} ~ {stock_price.index.max().date()}")
 
-            # CUSUM 方向 filter (cumSum_prob_12/cusum_{ticker}.csv)
+            # CUSUM directional filter (cumSum_prob_12/cusum_{ticker}.csv)
             cusum_sign_path = CUSUM_DIR_SIGN / f"cusum_{stock_id}.csv"
             cumSum = pd.read_csv(cusum_sign_path, index_col=0, parse_dates=True, header=None)
             cumSum.columns = ['cumSum']
@@ -1035,7 +1040,7 @@ def main():
             cumSum = cumSum.loc[eval_start:_eval_end]
             print(f"[DATE] cumSum non-null max = {cumSum.dropna().index.max().date() if not cumSum.dropna().empty else 'None'}")
 
-            # CUSUM 機率混合 (cumSum_prob_6/cusum_{ticker}.csv)
+            # CUSUM probability blend (cumSum_prob_6/cusum_{ticker}.csv)
             cusum_prob_path = CUSUM_DIR_PROB / f"cusum_{stock_id}.csv"
             cumSum_prob = pd.read_csv(cusum_prob_path, index_col=0, parse_dates=True, header=None).squeeze("columns")
             cumSum_prob = cumSum_prob[period[0]:]
@@ -1043,7 +1048,7 @@ def main():
             cumSum_prob = cumSum_prob.loc[eval_start:_eval_end]
             print(f"[DATE] cumSum_prob non-null max = {cumSum_prob.dropna().index.max().date() if not cumSum_prob.dropna().empty else 'None'}")
 
-            # 混合 DES 機率與 CUSUM 機率 (0.6 / 0.4)
+            # Blend DES probability with CUSUM probability (0.6 / 0.4)
             AGG_DES_adj = AGG_DES * 0.6
             cumSum_prob_adj = cumSum_prob * 0.4
             AGG_DES_P = AGG_DES_adj.add(cumSum_prob_adj)
@@ -1078,46 +1083,46 @@ def main():
             avg_loss = loss.mean()   if len(loss)   > 0 else 0.0
             win_loss_ratio = (avg_win / abs(avg_loss)) if avg_loss != 0 else np.inf
 
-            print('交易次數: ', transaction)
-            print('獲利次數: ', win)
-            print('勝率: {:14.2f}'.format(win_rate))
-            print('總獲利: {:12.2f}'.format(np.sum(profit)))
-            print('平均獲利: {:10.2f}'.format(avg_win))
-            print('總損失:  {:11.2f}'.format(np.sum(loss)))
-            print('平均損失: {:10.2f}'.format(avg_loss))
-            print('盈虧比: {:12.2f}'.format(win_loss_ratio))
+            print('trades:        ', transaction)
+            print('winning trades:', win)
+            print('win rate:      {:14.2f}'.format(win_rate))
+            print('total profit:  {:12.2f}'.format(np.sum(profit)))
+            print('avg win:       {:10.2f}'.format(avg_win))
+            print('total loss:    {:11.2f}'.format(np.sum(loss)))
+            print('avg loss:      {:10.2f}'.format(avg_loss))
+            print('win/loss ratio:{:12.2f}'.format(win_loss_ratio))
             W_L = pd.DataFrame({
-                '日期': df_DES_S.index[-1],
-                '股票代號': [stock_id_display],
-                '股票名稱': [stock_name],
-                '交易次數': [transaction],
-                '獲利次數': [win],
-                '總獲利':   [np.sum(profit)],
-                '平均獲利': [avg_win],
-                '總損失':   [np.sum(loss)],
-                '平均損失': [avg_loss],
-                '盈虧比':   [win_loss_ratio],
+                'date': df_DES_S.index[-1],
+                'ticker':        [stock_id_display],
+                'name':          [stock_name],
+                'trades':        [transaction],
+                'wins':           [win],
+                'total_profit':  [np.sum(profit)],
+                'avg_profit':    [avg_win],
+                'total_loss':    [np.sum(loss)],
+                'avg_loss':      [avg_loss],
+                'win_loss_ratio':[win_loss_ratio],
             })
-            W_L.set_index('日期', inplace=True)
+            W_L.set_index('date', inplace=True)
 
             if use_shap:
                 if explain_context is None or explain_context.get('model') is None:
-                    print('[SHAP][WARN] 找不到可用 DES 模型，略過 SHAP 計算。')
+                    print('[SHAP][WARN] no usable DES model found; skipping SHAP.')
                 else:
                     shap_tag = build_shap_tag(stock_id, period[0], used_feats)
                     local_csv  = Path(SHAP_OUTPUT_DIR) / f"local_{shap_tag}.csv"
                     global_csv = Path(SHAP_OUTPUT_DIR) / f"global_{shap_tag}.csv"
                     x_test = explain_context.get('X_test')
                     if x_test is None or len(x_test) == 0:
-                        print('[SHAP][WARN] 測試區間 X_test 為空，略過 SHAP 計算。')
+                        print('[SHAP][WARN] X_test is empty for the test window; skipping SHAP.')
                     else:
                         if (not force_shap_recompute) and local_csv.exists() and global_csv.exists():
                             local_shap_df = pd.read_csv(local_csv, index_col=0, parse_dates=True)
                             global_df = pd.read_csv(global_csv)
-                            print(f"[SHAP] 使用既有 cache: {local_csv}")
+                            print(f"[SHAP] using existing cache: {local_csv}")
                             save_shap_summary_plot(shap_tag, x_test, local_shap_df)
                         else:
-                            print('[SHAP] 建立 KernelExplainer 並計算測試區間 SHAP...')
+                            print('[SHAP] building KernelExplainer and computing SHAP over the test window...')
                             explainer = build_kernel_explainer(
                                 explain_context['model'],
                                 explain_context['X_train'],
@@ -1140,7 +1145,7 @@ def main():
             if show_fig:
                 plt.show()
         except Exception as e:
-            print(f"[ERROR] 處理 {ticker} 時發生錯誤: {e}")
+            print(f"[ERROR] failure while processing {ticker}: {e}")
         finally:
             plt.close('all')
 

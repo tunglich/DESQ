@@ -6,22 +6,23 @@ import time
 import warnings
 from datetime import datetime, timedelta
 
-"""Attention + FCN + Flooding + Keras Tuner 訓練腳本。
+"""Attention + FCN + Flooding + Keras Tuner training script.
 
-整體流程：
-1) 讀取單一標的/因子的特徵與標籤資料
-2) 進行特徵清理、縮放與時間序列切窗
-3) 以 HyperModel 建構 Attention + FCN 模型，並用 Bayesian Optimization 搜參
-4) 透過自訂 Tuner 在時間序列切分下評估 trial 指標
-5) 於主流程中逐檔訓練並輸出最佳 trial 結果
+Pipeline:
+1) Load features and labels for a single ticker / factor pair.
+2) Clean features, apply scaling, and cut the series into sliding windows.
+3) Build an Attention + FCN model via HyperModel and search hyperparameters
+   with Bayesian Optimization.
+4) Evaluate trial metrics under time-series splits inside a custom Tuner.
+5) Iterate over tickers in the main flow and emit the best trial result.
 
-設計目標：
-- 優先避免時間序列資料洩漏
-- 兼顧 Blackwell GPU（RTX 50 系列）在 WSL 上的穩定性
-- 保留可觀察性（重點指標與告警）與可維護性（清楚分段）
+Design goals:
+- Prevent time-series data leakage.
+- Stay stable on Blackwell GPUs (RTX 50 series) under WSL.
+- Preserve observability (key metrics and warnings) and maintainability (clear sections).
 """
 
-# 降低 TensorFlow/XLA 日誌噪音與首次編譯卡頓（需在 import tensorflow 前設定）
+# Reduce TensorFlow/XLA log noise and first-compile stalls (must be set before importing tensorflow)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 if 'TF_USE_LEGACY_KERAS' not in os.environ:
     os.environ['TF_USE_LEGACY_KERAS'] = '0'
@@ -48,7 +49,8 @@ except ImportError:
     tfa = None
 import platform
 
-# 在 WSL/單卡情境避免一次性吃滿顯存，降低底層中止（core dumped）風險
+# On WSL / single-GPU setups, avoid grabbing all VRAM at once to reduce the risk
+# of low-level aborts (core dumped)
 try:
     physical_gpus = tf.config.list_physical_devices('GPU')
     for gpu_device in physical_gpus:
@@ -59,7 +61,8 @@ except Exception:
 # from numba import cuda
 warnings.filterwarnings('ignore')
 
-# 為避免特定 TF/WSL/GPU 組合下的 native crash（double free），暫時固定走原生 Keras optimizer/metrics
+# Stay on native Keras optimizer/metrics to sidestep native crashes (double free)
+# seen on some TF/WSL/GPU combinations
 USE_TFA_OPTIMIZER = (os.getenv('ENABLE_TFA_OPTIMIZER', '0') == '1') and (tfa is not None)
 TRAIN_MODE = os.getenv('TRAIN_MODE', 'speed').lower()
 if TRAIN_MODE not in {'speed', 'safe', 'custom'}:
@@ -72,7 +75,7 @@ elif TRAIN_MODE == 'custom':
     FORCE_MODEL_BUILD_ON_CPU = os.getenv('FORCE_MODEL_BUILD_ON_CPU', '0') == '1'
     USE_EAGER_TRAINING = os.getenv('USE_EAGER_TRAINING', '0') == '1'
 else:
-    # speed mode（預設）: 避免被 shell 殘留 env 影響而誤開慢速 eager
+    # speed mode (default): guard against stale shell env vars accidentally enabling slow eager mode
     FORCE_MODEL_BUILD_ON_CPU = False
     USE_EAGER_TRAINING = False
 
@@ -103,7 +106,7 @@ ATT_DATA_DIR = os.getenv('DATA_ROOT', os.path.join(_WS_DIR, 'feature'))
 
 
 def _normalize_validation_mode(raw_mode: str) -> str:
-    """將 validation mode 別名正規化為內部使用值。"""
+    """Normalize a validation-mode alias to the internal value."""
     mode = (raw_mode or '').strip().lower()
     alias = {
         'traditional': 'blocking',
@@ -122,12 +125,13 @@ def _normalize_validation_mode(raw_mode: str) -> str:
 
 
 def _resolve_validation_mode() -> str:
-    """決定 validation mode。
+    """Decide the validation mode.
 
-    解析順序：
-      1) 環境變數 `VALIDATION_MODE`（支援 traditional/blocking/rolling/expanding 別名）。
-      2) 若未設定且為互動式 TTY（非子程序隔離執行）：詢問使用者（預設 rolling）。
-      3) 否則預設 `blocking`（保留舊行為）。
+    Resolution order:
+      1) `VALIDATION_MODE` env var (accepts traditional/blocking/rolling/expanding aliases).
+      2) If unset and running under an interactive TTY (not sandboxed subprocess):
+         prompt the user (default rolling).
+      3) Otherwise fall back to `blocking` (legacy behaviour).
     """
     raw = os.getenv('VALIDATION_MODE')
     if raw is not None:
@@ -140,12 +144,12 @@ def _resolve_validation_mode() -> str:
     if ISOLATED_CHILD_RUN or not sys.stdin.isatty():
         return 'blocking'
 
-    print("請選擇 validation mode:")
+    print("Please select validation mode:")
     print("  1) traditional (blocking)")
     print("  2) walk-forward expanding")
     print("  3) walk-forward rolling [default]")
     try:
-        answer = input("請輸入 1/2/3（Enter=3）: ").strip().lower()
+        answer = input("Enter 1/2/3 (default 3): ").strip().lower()
     except EOFError:
         return 'walk_forward_rolling'
 
@@ -170,12 +174,12 @@ WF_VAL_SAMPLES = int(round(WF_VAL_YEARS * WF_TRADING_DAYS_PER_YEAR)) if WF_VAL_Y
 
 
 def _resolve_feature_preprocess():
-    """決定是否執行特徵前處理（相關過濾 + sanitize + scaler）。
+    """Decide whether to run feature preprocessing (corr filter + sanitize + scaler).
 
-    解析順序：
-      1) 環境變數 `FEATURE_PREPROCESS`（0/no/false 關閉；1/yes/true 開啟）。
-      2) 若未設定且為互動式 TTY（非子程序隔離執行）：詢問使用者。
-      3) 否則預設開啟。
+    Resolution order:
+      1) `FEATURE_PREPROCESS` env var (0/no/false = off; 1/yes/true = on).
+      2) If unset and running under an interactive TTY (not sandboxed subprocess): prompt the user.
+      3) Otherwise on by default.
     """
     raw = os.getenv('FEATURE_PREPROCESS')
     if raw is not None:
@@ -183,7 +187,7 @@ def _resolve_feature_preprocess():
     if ISOLATED_CHILD_RUN or not sys.stdin.isatty():
         return True
     try:
-        answer = input("是否執行特徵前處理（相關過濾 + sanitize + Yeo-Johnson/Robust scaler）？[Y/n]: ").strip().lower()
+        answer = input("Run feature preprocessing (corr filter + sanitize + Yeo-Johnson/Robust scaler)? [Y/n]: ").strip().lower()
     except EOFError:
         return True
     return answer not in {'n', 'no', '0', 'false'}
@@ -200,8 +204,9 @@ if FAST_DEBUG:
         f"stage1_epochs={STAGE1_EPOCHS}, stage2_epochs={STAGE2_EPOCHS}, fit_verbose={FIT_VERBOSE}"
     )
 
-# walk-forward 模式下可選擇自動降載以縮短 wall-time。
-# 預設「不」降載（比照台股完整預算）；要降載請設 AUTO_REDUCE_SEARCH_FOR_WF=1。
+# In walk-forward mode search can be scaled down automatically to shorten wall-time.
+# Default: no downscaling (matches the TW full-budget setup). Set
+# AUTO_REDUCE_SEARCH_FOR_WF=1 to opt in.
 _stage_budget_overridden = any(
     os.getenv(k) is not None
     for k in ('STAGE1_MAX_TRIALS', 'STAGE2_MAX_TRIALS', 'STAGE1_EPOCHS', 'STAGE2_EPOCHS')
@@ -259,7 +264,7 @@ print(
 TRIAL_PREP_CACHE = {}
 
 def make_dataset_cache_key(prefix, x, y):
-    """建立資料專屬 cache key，避免不同資料共用到錯誤索引。"""
+    """Build a data-specific cache key so distinct datasets do not collide."""
     x_ptr = int(x.__array_interface__['data'][0]) if hasattr(x, '__array_interface__') else id(x)
     y_ptr = int(y.__array_interface__['data'][0]) if hasattr(y, '__array_interface__') else id(y)
     return (
@@ -271,16 +276,16 @@ def make_dataset_cache_key(prefix, x, y):
     )
 
 def platform_path(win_path: str) -> str:
-    """將 Windows 路徑轉為可在當前系統使用的路徑。
+    """Convert a Windows-style path into one usable on the current system.
 
-    參數:
-        win_path: 可能為 Windows 格式（如 `D:/...`）的路徑字串。
+    Args:
+        win_path: path string, possibly in Windows form (e.g. `D:/...`).
 
-    回傳:
-        在 Windows 回傳原路徑；在 Linux/WSL 回傳 `/mnt/<drive>/...` 路徑。
+    Returns:
+        Original path on Windows; `/mnt/<drive>/...` on Linux / WSL.
 
-    副作用:
-        無。
+    Side effects:
+        None.
     """
     if platform.system() != 'Windows' and len(win_path) >= 2 and win_path[1] == ':':
         drive = win_path[0].lower()
@@ -292,20 +297,20 @@ SCALER_ROOT = platform_path(ATT_SCALER_DIR)
 os.makedirs(SCALER_ROOT, exist_ok=True)
 
 class SinusoidalPositionalEncoding(layers.Layer):
-    """固定式正弦/餘弦位置編碼層。
+    """Fixed sinusoidal / cosine positional-encoding layer.
 
-    用途:
-        取代第三方 PositionEmbedding，提供無可訓練參數的位置資訊。
-        相容混合精度（自動轉換 encoding dtype）。
+    Purpose:
+        Replace third-party PositionEmbedding with a parameter-free positional signal.
+        Compatible with mixed precision (auto-casts the encoding dtype).
 
-    參數:
-        無（透過輸入張量 shape 動態推導）。
+    Args:
+        None (dimensions are inferred from the input tensor shape).
 
-    屬性:
-        無持久可訓練參數。
+    Attributes:
+        No persistent trainable parameters.
 
-    副作用:
-        無。
+    Side effects:
+        None.
     """
     def call(self, x):
         seq_len = tf.shape(x)[1]
@@ -319,7 +324,7 @@ class SinusoidalPositionalEncoding(layers.Layer):
         encoding = (tf.sin(angles) * tf.cast(cos_mask, tf.float32)
                     + tf.cos(angles) * tf.cast(sin_mask, tf.float32))
         encoding = encoding[tf.newaxis, :, :]
-        # 強制轉換 encoding 到輸入的 dtype（支援混合精度 float16）
+        # Force-cast the encoding to match the input dtype (supports mixed-precision float16)
         encoding = tf.cast(encoding, x.dtype)
         return x + encoding
     
@@ -327,31 +332,31 @@ class SinusoidalPositionalEncoding(layers.Layer):
         return super().get_config()
 
 # ==============================================================
-# 本檔案用途：
-# 1) 讀取單一股票的特徵資料（X）與標籤（y）
-# 2) 進行特徵清理/正規化與時間序列切窗
-# 3) 使用可變層數 Attention + FCN 模型進行分類
-# 4) 透過 Keras Tuner (Bayesian Optimization) 搜尋超參數
-# 5) 以時間序列交叉驗證結果作為 trial objective
+# Purpose of this file:
+# 1) Load features (X) and labels (y) for a single ticker.
+# 2) Clean / normalize features and cut into time-series windows.
+# 3) Classify with a variable-depth Attention + FCN model.
+# 4) Search hyperparameters via Keras Tuner (Bayesian Optimization).
+# 5) Use time-series cross-validated metrics as the trial objective.
 # ==============================================================
 
-# 時間序列交叉驗證, 每個 block 中選 80% train, 20% test, 兩份資料中間又空出 10 個交易日資料, avoid data leaking
+# Time-series cross-validation: each block uses 80% train / 20% test with a 10-trading-day gap to avoid data leakage.
 class BlockingTimeSeriesSplit:
-    """時間序列分割器（Blocking CV）。
+    """Time-series splitter (Blocking CV).
 
-    用途:
-        保持時間順序切分資料，並在 train/val 間加入 gap 防止資料洩漏。
+    Purpose:
+        Split data chronologically and insert a gap between train and val to prevent leakage.
 
-    參數:
-        n_splits: 分割數。
-        val_ratio: 每個 block 的驗證比例。
-        gap: train 與 val 之間的間隔樣本數。
+    Args:
+        n_splits: number of splits.
+        val_ratio: validation fraction per block.
+        gap: samples between train and val.
 
-    屬性:
+    Attributes:
         n_splits, val_ratio, gap。
 
-    副作用:
-        無。
+    Side effects:Side effects:
+        None.
     """
     def __init__(self, n_splits, val_ratio=0.25, gap=10):
         self.n_splits = n_splits
@@ -361,15 +366,15 @@ class BlockingTimeSeriesSplit:
     def get_n_splits(self, X=None, y=None, groups=None):
         return self.n_splits
     
-    # 依時間切分，訓練與驗證中間留 gap 天避免資料洩漏
+    # Split chronologically; leave a gap of `gap` days between train and val to avoid leakage
     def split(self, X, y=None, groups=None):
-        """回傳每一折的 train/validation 索引。
+        """Yield (train_idx, val_idx) for each fold.
 
-        參數
+        Args
         ----
         X : array-like
-            依時間排序的樣本序列。
-        y, groups : 兼容 sklearn 介面保留參數。
+            time-sorted sample sequence.
+        y, groups : kept for sklearn-interface compatibility.
         """
         n_samples = len(X)
         k_fold_size = n_samples // self.n_splits
@@ -389,24 +394,24 @@ class BlockingTimeSeriesSplit:
 
 
 class WalkForwardSplit:
-    """Walk-Forward Validation 切分器（支援 rolling / expanding）。
+    """Walk-Forward Validation splitter (supports rolling / expanding).
 
-    用途:
-        模擬「以過去訓練、在緊接著的未來驗證」的滾動評估模式，
-        以避免前瞻偏差並捕捉機制轉變。
+    Purpose:
+        Simulate a rolling "train on past, validate on the immediate future" scheme
+        to avoid look-ahead bias and to catch regime shifts.
 
-    參數:
-        n_splits: 切分折數，每折一個驗證區間。
-        val_ratio: 每折驗證區間佔全部資料的比例（預設 0.2）。
-        val_samples: 每折驗證樣本數（>0 時優先於 val_ratio，可用於固定年數）。
-        gap: train 與 val 之間留出的樣本數，避免 label leakage。
-        mode: 'rolling' 或 'expanding'。
+    Args:
+        n_splits: number of folds, one validation window per fold.
+        val_ratio: validation window as a fraction of the full series (default 0.2).
+        val_samples: validation window size (>0 overrides val_ratio; useful for fixed year windows).
+        gap: samples between train and val to avoid label leakage.
+        mode: 'rolling' or 'expanding'.
 
-    屬性:
+    Attributes:
         n_splits, val_ratio, gap, mode。
 
-    副作用:
-        無。
+    Side effects:Side effects:
+        None.
     """
 
     def __init__(self, n_splits=5, val_ratio=0.2, gap=10, mode='rolling', val_samples=0):
@@ -428,10 +433,11 @@ class WalkForwardSplit:
         return self.n_splits
 
     def split(self, X, y=None, groups=None):
-        """依時間順序產生 (train_idx, val_idx)，n_splits 個滾動視窗。
+        """Yield (train_idx, val_idx) pairs in chronological order across n_splits rolling windows.
 
-        Val 區間等長且順序不重疊。Rolling 模式下 train 長度固定；
-        Expanding 模式下 train 起點固定，長度隨視窗增長。
+        Validation windows are equal-length and non-overlapping. In rolling mode
+        train length is fixed; in expanding mode train start is fixed and train
+        length grows with the window.
         """
         n_samples = int(len(X))
         if n_samples <= self.gap + 2:
@@ -441,14 +447,14 @@ class WalkForwardSplit:
             val_size = max(1, int(self.val_samples))
         else:
             val_size = max(1, int(n_samples * self.val_ratio / self.n_splits))
-        # 預留出 n_splits 個 val 區間與至少一個 train 區間 + gap。
+        # Reserve n_splits validation windows plus at least one train window + gap.
         total_val = val_size * self.n_splits
         if total_val + self.gap + 1 >= n_samples:
-            # 限縮 val_size 使其可容納
+            # Shrink val_size until it fits
             val_size = max(1, (n_samples - self.gap - 2) // (self.n_splits + 1))
             total_val = val_size * self.n_splits
 
-        # rolling train_len: 所有折中 train 長度相同，使用第一折 train 可用空間。
+        # rolling train_len: all folds share the same train length, sized from the first fold's available room.
         first_val_start = n_samples - total_val
         first_train_end = first_val_start - self.gap
         rolling_train_len = max(1, first_train_end)
@@ -471,7 +477,7 @@ class WalkForwardSplit:
 
 
 def build_validation_splitter():
-    """依 `VALIDATION_MODE` 環境變數選擇指定的時間序列切分器。"""
+    """Pick the time-series splitter specified by the VALIDATION_MODE env var."""
     if VALIDATION_MODE == 'walk_forward_rolling':
         return WalkForwardSplit(
             n_splits=WF_N_SPLITS,
@@ -493,20 +499,20 @@ def build_validation_splitter():
     return BlockingTimeSeriesSplit(n_splits=1)
 
 def val_windows(data, ref_day=60, period=20): 
-    """將時間序列資料轉為監督式學習窗口。
+    """Convert a time-series DataFrame into supervised windows.
 
-    參數:
-        data: 含特徵與標籤欄位的 DataFrame（最後 4 欄視為標籤/保留欄）。
-        ref_day: 每筆樣本回看天數（視窗長度）。
-        period: 標籤欄位後綴，對應 `y_{period}`。
+    Args:
+        data: DataFrame with feature and label columns; the last 4 columns are treated as labels / reserved.
+        ref_day: number of lookback days per sample (window length).
+        period: label column suffix corresponding to `y_{period}`.
 
-    回傳:
+    Returns:
         (X_val, y_val)
-        - X_val: shape=(樣本數, ref_day, 特徵數)
-        - y_val: shape=(樣本數,)
+        - X_val: shape=(n_samples, ref_day, n_features)
+        - y_val: shape=(n_samples,)
 
-    副作用:
-        無。
+    Side effects:Side effects:
+        None.
     """
     n_features = data.shape[1] - 4
     feat_arr = np.ascontiguousarray(data.iloc[:, :-4].to_numpy(dtype=np.float64))
@@ -517,30 +523,31 @@ def val_windows(data, ref_day=60, period=20):
     y_val = data[f"y_{period}"].to_numpy()[ref_day - 1:]
     return X_val, y_val
     
-# 為儘量取得有效資料, 因 PE & PB 正規計算需至少參考到 3 年歷史資料,  故訓練起始日為至少 3*250 個交易日後, cast_to_floatx 將 numpy 轉為 Keras 浮點類型
+# Maximize usable data: PE / PB require at least 3 years of history, so training starts at least 3*250 trading days in.
+# cast_to_floatx converts numpy arrays to the Keras floating-point dtype.
 def make_datasets(X, y, idx, start, end, ref_day):
-    """依日期區間切出訓練/測試資料，並套用最小歷史樣本限制。
+    """Slice train / test by date and apply a minimum history-length guard.
 
-    參數:
-        X: 已切窗完成的特徵陣列。
-        y: 與 X 對齊的標籤陣列。
-        idx: 原始資料日期索引（DatetimeIndex）。
-        start: 起始日期字串（YYYY-MM-DD）。
-        end: 結束日期字串（YYYY-MM-DD）。
-        ref_day: 視窗長度，用於索引回推。
+    Args:
+        X: windowed feature array.
+        y: label array aligned with X.
+        idx: original data date index (DatetimeIndex).
+        start: start-date string (YYYY-MM-DD).
+        end: end-date string (YYYY-MM-DD).
+        ref_day: window length, used to back out the index.
 
-    回傳:
-        (X_slice, y_slice)，皆為 Keras floatx dtype。
+    Returns:
+        (X_slice, y_slice), both in Keras floatx dtype.
 
-    副作用:
-        無。
+    Side effects:
+        None.
     """
     start_idx = idx.get_loc(idx.to_series()[start:].iloc[0])
     end_idx = idx.get_loc(idx.to_series()[:end].iloc[-1])
     return K.cast_to_floatx(X[max(1*250-1, start_idx-ref_day+1):end_idx-ref_day+2]), K.cast_to_floatx(y[max(1*250-1, start_idx-ref_day+1):end_idx-ref_day+2])
 
 def fit_sanitize_statistics(df, max_abs=1e6, q=0.001):
-    """以訓練區間估計 sanitize 統計量，避免未來資訊洩漏。"""
+    """Estimate sanitize statistics on the training slice to avoid look-ahead leakage."""
     numeric_df = df.replace([np.inf, -np.inf], np.nan)
     numeric_df = numeric_df.apply(pd.to_numeric, errors='coerce').astype(np.float64)
 
@@ -557,7 +564,7 @@ def fit_sanitize_statistics(df, max_abs=1e6, q=0.001):
 
 
 def apply_sanitize_statistics(df, stats):
-    """套用固定 sanitize 統計量，確保訓練/推論一致。"""
+    """Apply the fixed sanitize statistics so training and inference stay consistent."""
     max_abs = float(stats.get('max_abs', 1e6))
     sanitized = df.replace([np.inf, -np.inf], np.nan)
     sanitized = sanitized.apply(pd.to_numeric, errors='coerce').astype(np.float64)
@@ -581,7 +588,7 @@ def apply_sanitize_statistics(df, stats):
 
 
 def sanitize_feature_values(feature_df, fit_start, fit_end):
-    """向後相容：用 fit 區間估計統計後套用到全資料。"""
+    """Backwards-compat: fit sanitize statistics on the fit slice, then apply to all data."""
     fit_slice = feature_df.loc[fit_start:fit_end]
     if fit_slice.empty:
         fit_slice = feature_df
@@ -596,16 +603,16 @@ from tensorflow.keras.layers import Dense, LayerNormalization
 from tensorflow.keras.utils import to_categorical
 
 def configure_gpu():
-    """設定 GPU memory growth，降低一次性佔滿顯存的風險。
+    """Enable GPU memory growth to avoid a one-shot VRAM grab.
 
-    參數:
-        無。
+    Args:
+        None.
 
-    回傳:
-        無。
+    Returns:
+        None.
 
-    副作用:
-        會修改 TensorFlow runtime 的 GPU memory growth 設定。
+    Side effects:
+        Mutates the TensorFlow runtime GPU memory growth setting.
     """
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if gpus:
@@ -630,19 +637,19 @@ def configure_gpu():
 configure_gpu()
 
 def warmup_one_batch(model, x_train, y_train, batch_size):
-    """執行 1 個 batch 暖機，將首次 kernel 編譯開銷前移。
+    """Run 1 warm-up batch to move first-time kernel compilation earlier.
 
-    參數:
-        model: 已 compile 的 Keras 模型。
-        x_train: 訓練特徵陣列。
-        y_train: 訓練標籤陣列。
-        batch_size: 暖機 batch 大小上限。
+    Args:
+        model: compiled Keras model.
+        x_train: training feature array.
+        y_train: training label array.
+        batch_size: max warm-up batch size.
 
-    回傳:
-        暖機耗時（秒）。
+    Returns:
+        Warm-up duration in seconds.
 
-    副作用:
-        觸發一次前向推論/評估圖編譯，不更新模型權重。
+    Side effects:
+        Triggers a forward-inference / eval graph compile; does not update weights.
     """
     warmup_size = min(int(batch_size), int(x_train.shape[0]))
     if warmup_size <= 0:
@@ -660,11 +667,11 @@ def warmup_one_batch(model, x_train, y_train, batch_size):
     return time.time() - started_at
 
 def get_trial_prep_cache(cache_key, x, y):
-    """快取每種資料窗口的切分索引與權重，減少 trial 前重複計算。
+    """Cache split indices and weights per window so per-trial computation is cheaper.
 
-    回傳結構：``{'folds': [{train_indices, val_indices, class_weights, val_weights}, ...],
-    'mode': VALIDATION_MODE}``。一般 blocking 模式只會有 1 個 fold；walk-forward 則為
-    ``WF_N_SPLITS`` 個 fold（rolling 或 expanding）。
+    Return shape: ``{'folds': [{train_indices, val_indices, class_weights, val_weights}, ...],
+    'mode': VALIDATION_MODE}``. Blocking mode yields 1 fold; walk-forward yields
+    ``WF_N_SPLITS`` folds (rolling or expanding).
     """
     cache = TRIAL_PREP_CACHE.get(cache_key)
     if cache is not None:
@@ -728,7 +735,7 @@ if ENABLE_KERAS_PICKLE_HOTFIX:
     from tensorflow.python.keras.saving import saving_utils
 
     def unpack(model, training_config, weights):
-        """將序列化資料還原為可使用的 Keras 模型。"""
+        """Rehydrate serialized data into a usable Keras model."""
         restored_model = deserialize(model, custom_objects={
             'TCN': TCN,
         })
@@ -742,7 +749,7 @@ if ENABLE_KERAS_PICKLE_HOTFIX:
         return restored_model
 
     def make_keras_picklable():
-        """替 Keras Model 注入 `__reduce__`，讓 pickle 可序列化模型。"""
+        """Inject `__reduce__` into Keras Model so it becomes pickle-serializable."""
 
         def __reduce__(self):
             model_metadata = saving_utils.model_metadata(self)
@@ -761,35 +768,35 @@ if USE_TFA_OPTIMIZER and tfa is not None:
     from tensorflow_addons.metrics import FBetaScore
 
 class FloodingModel(keras.Model):
-    """套用 Flooding 訓練策略的自訂 Keras 模型。
+    """Custom Keras model that applies the Flooding training strategy.
 
-    用途:
-        覆寫 `train_step`，將原始 loss 映射到 flooding loss，抑制過度擬合。
+    Purpose:
+        Override `train_step` to map the raw loss to flooding loss and curb overfitting.
 
-    參數:
-        與 `keras.Model` 建構參數一致（由 Functional API 建立）。
+    Args:
+        Same constructor arguments as `keras.Model` (built via the Functional API).
 
-    屬性:
-        flooding_b: Flooding 水位（float，預設 0.10）。
+    Attributes:
+        flooding_b: flooding level (float, default 0.10).
 
-    副作用:
-        改變每個 batch 的訓練 loss 計算方式。
+    Side effects:
+        Changes the per-batch training loss computation.
     """
     flooding_b = 0.10       
     def train_step(self, data):
-        """執行單一訓練步驟並套用 flooding loss。
+        """Run a single training step and apply flooding loss.
 
-        用途:
-            取代預設 `Model.train_step`，在每個 batch 內改寫 loss 計算。
+        Purpose:
+            Replace the default `Model.train_step` and rewrite loss computation per batch.
 
-        參數:
-            data: Keras batch 輸入，格式可為 `(x, y)` 或 `(x, y, sample_weight)`。
+        Args:
+            data: Keras batch input, either `(x, y)` or `(x, y, sample_weight)`.
 
-        回傳:
-            dict，鍵為 metric 名稱、值為當前 metric 結果。
+        Returns:
+            dict mapping metric name -> current metric value.
 
-        副作用:
-            會更新模型權重與 metric 狀態。
+        Side effects:
+            Updates model weights and metric state.
         """
         if len(data) == 3:
             x, y, sample_weight = data
@@ -813,24 +820,25 @@ class FloodingModel(keras.Model):
 
 
 class DynamicFloodingCallback(tf.keras.callbacks.Callback):
-    """依驗證表現動態調整 `flooding_b` 的 callback。
+    """Callback that dynamically adjusts `flooding_b` based on validation performance.
 
-    用途:
-        在每個 epoch 結束後，根據監控指標是否改善來上下調整 flooding 水位。
+    Purpose:
+        After each epoch, raise or lower the flooding level depending on whether
+        the monitored metric improved.
 
-    參數:
-        monitor: 監控指標名稱（預設 `val_recall`）。
-        min_b/max_b: flooding_b 上下界。
-        step_up/step_down: 調整步長。
-        patience: 未改善容忍 epoch 數。
-        min_delta: 視為改善的最小幅度。
-        verbose: 是否印出調整訊息。
+    Args:
+        monitor: name of the monitored metric (default `val_recall`).
+        min_b / max_b: lower and upper bounds for flooding_b.
+        step_up / step_down: adjustment step size.
+        patience: epochs of no improvement tolerated.
+        min_delta: minimum improvement magnitude to count as progress.
+        verbose: whether to print adjustment info.
 
-    屬性:
-        best, wait 與上述控制參數。
+    Attributes:
+        best, wait, and the control state described above.
 
-    副作用:
-        會直接修改 `self.model.flooding_b`。
+    Side effects:
+        Mutates `self.model.flooding_b` directly.
     """
     def __init__(
         self,
@@ -883,7 +891,7 @@ class DynamicFloodingCallback(tf.keras.callbacks.Callback):
 
 
 class TrialTimeoutCallback(tf.keras.callbacks.Callback):
-    """每個 trial 的超時保護 callback。"""
+    """Callback that enforces a per-trial timeout."""
     def __init__(self, trial_id, timeout_seconds, trial_started_at, verbose=1):
         super().__init__()
         self.trial_id = trial_id
@@ -912,19 +920,19 @@ class TrialTimeoutCallback(tf.keras.callbacks.Callback):
         self._check_timeout()
 
 class CausalMask(layers.Layer):
-    """產生下三角因果遮罩（只看過去）。
+    """Produce a lower-triangular causal mask (past only).
 
-    用途:
-        給 MultiHeadAttention 當 `attention_mask`，避免看到未來時間點。
+    Purpose:
+        Feed as `attention_mask` to MultiHeadAttention so it cannot see future timesteps.
 
-    參數:
-        無。
+    Args:
+        None.
 
-    屬性:
-        無可訓練參數。
+    Attributes:
+        None trainable.
 
-    副作用:
-        無。
+    Side effects:
+        None.
     """
     def call(self, x):
         seq_len = tf.shape(x)[1]
@@ -936,20 +944,20 @@ class CausalMask(layers.Layer):
         return super().get_config()
 
 def add_causal_mha_block(x, num_heads, key_dim, dropout_rate, name_prefix):
-    """建立因果式多頭注意力區塊。
+    """Build a causal multi-head attention block.
 
-    參數:
-        x: 輸入張量，shape=(batch, time, features)。
-        num_heads: 注意力頭數。
-        key_dim: 每個 head 的 key 維度。
-        dropout_rate: 注意力輸出的 dropout 比例。
-        name_prefix: layer 命名前綴。
+    Args:
+        x: input tensor with shape (batch, time, features).
+        num_heads: number of attention heads.
+        key_dim: key dimensionality per head.
+        dropout_rate: dropout applied to the attention output.
+        name_prefix: layer name prefix.
 
-    回傳:
-        經 MHA + 殘差 + LayerNorm 後的輸出張量。
+    Returns:
+        Output tensor after MHA + residual + LayerNorm.
 
-    副作用:
-        無。
+    Side effects:
+        None.
     """
     causal_mask = CausalMask(name=f"{name_prefix}_causal_mask")(x)
     attn = layers.MultiHeadAttention(
@@ -965,22 +973,22 @@ def add_causal_mha_block(x, num_heads, key_dim, dropout_rate, name_prefix):
 
 # Define model with hp (hyperparameter) turnable
 class HyperTCN(kt.HyperModel):
-    """Keras Tuner 使用的超模型定義。
+    """HyperModel used by Keras Tuner.
 
-    用途:
-        定義可搜尋的 Attention + FCN 網路與 compile 設定。
+    Purpose:
+        Define the searchable Attention + FCN network plus its compile settings.
 
-    參數:
-        name: HyperModel 名稱。
-        tunable: 是否允許 tuner 調整。
-        input_shape: 模型輸入 shape。
-        strategy: 分散式策略（保留欄位）。
+    Args:
+        name: HyperModel name.
+        tunable: whether the tuner may adjust it.
+        input_shape: model input shape.
+        strategy: distribution strategy (kept for compatibility).
 
-    屬性:
+    Attributes:
         input_shape, strategy。
 
-    副作用:
-        `build()` 會依 hp 建立並 compile 新模型。
+    Side effects:
+        `build()` builds and compiles a new model from hp.
     """
     def __init__(self, name=None, tunable=True, input_shape=None, strategy=None):
         self.input_shape = input_shape
@@ -988,10 +996,10 @@ class HyperTCN(kt.HyperModel):
         super().__init__(name, tunable)
 
     def build(self, hp):     
-        """根據 hp 組合建構並編譯模型。"""
+        """Build and compile a model from a hyperparameter combination."""
         inputs = keras.Input(shape=self.input_shape, name="inputs")
 
-        # 位置編碼：以無參數正弦波編碼取代 PositionEmbedding
+        # Positional encoding: parameter-free sinusoidal encoding in place of PositionEmbedding
         x = SinusoidalPositionalEncoding(name='pos_enc')(inputs)
 
         attn_layers = hp.Int("attn_layers", min_value=1, max_value=3, step=1)
@@ -1038,7 +1046,7 @@ class HyperTCN(kt.HyperModel):
             kernel_initializer=hp.Choice("Dense_kernel_2", ["glorot_normal", "glorot_uniform", "he_normal", "he_uniform"], default='glorot_normal')
         )(x)
 
-        # Temperature: 控制 softmax 平滑度
+        # Temperature: controls softmax smoothness
         logits = layers.Lambda(
             lambda t: t / hp.Float("temp", min_value=0.3, max_value=1, step=0.1),
             name="temperature"
@@ -1066,7 +1074,7 @@ class HyperTCN(kt.HyperModel):
         else:
             fbeta_metric = tf.keras.metrics.F1Score(average='weighted', name='f_beta_score')
 
-        # 使用自訂 FloodingModel 包裝，讓 train_step 生效
+        # Wrap in the custom FloodingModel so our train_step takes effect
         model = FloodingModel(inputs, outputs)
         model.compile(
             loss='categorical_crossentropy',
@@ -1082,41 +1090,42 @@ class HyperTCN(kt.HyperModel):
         return model
 
 class TunerCV(kt.engine.tuner.Tuner):
-    """以時間序列切分評估 trial 的自訂 Tuner。
+    """Custom Tuner that scores trials with time-series splits.
 
-    用途:
-        覆寫 `run_trial`，在每個 trial 內執行 blocking CV，並回報平均指標。
+    Purpose:
+        Override `run_trial` to run blocking CV inside each trial and report the average metric.
 
-    參數:
-        與 `kt.engine.tuner.Tuner` 相容。
+    Args:
+        Compatible with `kt.engine.tuner.Tuner`.
 
-    屬性:
-        繼承自 Keras Tuner Tuner。
+    Attributes:
+        Inherits from the Keras Tuner Tuner.
 
-    副作用:
-        執行訓練、更新 oracle trial metrics、清理 session。
+    Side effects:
+        Runs training, updates oracle trial metrics, and clears the Keras session.
     """
     def run_trial(self, trial, x=None, y=None, batch_size=40, epochs=1, callbacks=[], windowed_data=None, *args, **kwargs):
-        """執行單一 trial 並回報時間序列驗證結果。
+        """Run one trial and report the time-series validation result.
 
-        用途:
-            在 trial 內進行 blocking CV 訓練，彙整各項驗證指標後更新 oracle。
+        Purpose:
+            Perform blocking CV inside the trial, aggregate validation metrics,
+            and update the oracle.
 
-        參數:
-            trial: 當前 Keras Tuner trial 物件。
-            x: 訓練特徵陣列（未提供 `windowed_data` 時使用）。
-            y: 訓練標籤陣列（未提供 `windowed_data` 時使用）。
-            batch_size: 訓練 batch 大小。
-            epochs: 訓練 epoch 數。
-            callbacks: 額外 callback 清單（保留相容）。
-            windowed_data: 可選，格式為 `{lookback_window: (X_train, y_train_onehot)}`。
-            *args, **kwargs: 保留給父類別/調用端的擴充參數。
+        Args:
+            trial: current Keras Tuner trial object.
+            x: training feature array (used when `windowed_data` is not supplied).
+            y: training label array (used when `windowed_data` is not supplied).
+            batch_size: training batch size.
+            epochs: number of training epochs.
+            callbacks: extra callback list (kept for compatibility).
+            windowed_data: optional dict mapping lookback_window -> (X_train, y_train_onehot).
+            *args, **kwargs: reserved for the parent class / caller.
 
-        回傳:
-            無（結果透過 `self.oracle.update_trial(...)` 回報）。
+        Returns:
+            None (results are reported via `self.oracle.update_trial(...)`).
 
-        副作用:
-            會執行模型訓練、推論、更新 trial metrics，並清理 Keras session。
+        Side effects:
+            Trains the model, runs inference, updates trial metrics, and clears the Keras session.
         """
         if windowed_data is not None:
             lookback_window = trial.hyperparameters.Choice(
@@ -1156,7 +1165,7 @@ class TunerCV(kt.engine.tuner.Tuner):
         cache_key = make_dataset_cache_key(cache_prefix, x, y)
         prep_cache = get_trial_prep_cache(cache_key, x, y)
 
-        # 訓練資料切三份, 記錄每個 block 在驗證集上的分類表現, 取平均作為該組參數的 objective score
+        # Split training data into 3 blocks; the average classification score across their validation sets is the trial objective.
         folds = prep_cache['folds']
         n_folds = len(folds)
         for fold_idx, fold in enumerate(folds, start=1):
@@ -1213,7 +1222,7 @@ class TunerCV(kt.engine.tuner.Tuner):
                 batch_size=batch_size, 
                 epochs=epochs, 
                 verbose=FIT_VERBOSE,
-                shuffle=False, # 時間序列建議不打亂，以避免時間洩漏
+                shuffle=False,  # never shuffle time-series data to avoid look-ahead leakage
                 validation_data=(x_val, y_val, val_weights), 
                 class_weight=class_weights,
                 callbacks=[
@@ -1228,7 +1237,7 @@ class TunerCV(kt.engine.tuner.Tuner):
                         min_delta=1e-4,
                         verbose=1
                     ),
-                    # 當訓練落到瓶頸, 降低 learning rate
+                    # Reduce learning rate when training plateaus
                     #ReduceLROnPlateau(monitor='val_fbeta_score', mode='max', factor=0.2, patience=10, min_delta=1E-7, verbose=1)
                     #,EarlyStopping(monitor='val_fbeta_score', mode='max', patience= 10, verbose=1)
                     ReduceLROnPlateau(monitor='val_recall', mode='max', factor=0.5, patience=25, min_delta=1e-7, verbose=1)
@@ -1243,7 +1252,7 @@ class TunerCV(kt.engine.tuner.Tuner):
                 break
 
             eval_results = model.evaluate(x_val, y_val, verbose=0)
-            # 因 metrics_names 與 evaluate 回傳順序一致，故可轉成 dict 方便取值
+            # metrics_names and evaluate() return in the same order, so we can zip them into a dict for convenience
             eval_by_name = dict(zip(model.metrics_names, eval_results))
             val_loss = eval_by_name.get('loss', np.nan)
             val_recall_metric = eval_by_name.get('recall', np.nan)
@@ -1288,7 +1297,7 @@ class TunerCV(kt.engine.tuner.Tuner):
         self.oracle.update_trial(
             trial.trial_id,
             {
-                # 這裡回報給 Bayesian Optimization 的是 trial 的綜合表現
+                # Report the aggregated trial score to Bayesian Optimization
                 'val_loss': np.mean(val_losses),
                 'val_recall_metric': np.mean(val_recall_metrics),
                 'val_fbeta_metric': np.mean(val_fbeta_metrics),
@@ -1307,15 +1316,16 @@ from glob import glob
 from sklearn.preprocessing import RobustScaler, PowerTransformer
 
 
-# trade CSV 裡重尾特徵（pct_change / abs(net / MA20) 等可能爆量）；進 sanitize
-# 之前先 signed log1p，避免 Yeo-Johnson 與 quantile 被極端尾部帶偏。
+# Trade-CSV columns with heavy tails (pct_change / abs(net / MA20) etc. can explode);
+# apply signed log1p before sanitize so Yeo-Johnson / quantile transforms are not
+# biased by extreme tails.
 TRADE_HEAVY_TAIL_COLS = (
     'foreign_cap_ratio', 'invst_cap_ratio', 'ins_nbd', 'Force_nbd', 'smr'
 )
 
 
 def _prepare_trade_features(df: pd.DataFrame) -> pd.DataFrame:
-    """對 trade CSV 的重尾欄位做 signed log1p，其餘欄位保持原樣。"""
+    """Apply signed log1p to heavy-tailed columns of the trade CSV; leave others untouched."""
     out = df.copy()
     for c in TRADE_HEAVY_TAIL_COLS:
         if c in out.columns:
@@ -1326,8 +1336,8 @@ def _prepare_trade_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _detect_non_zero_date(df: pd.DataFrame, ratio_threshold: float = 0.0):
-    """回傳首個「非零欄位比例達 ratio_threshold」的日期。
-    ratio_threshold=0 代表只要有任一欄非零（舊行為）。"""
+    """Return the first date whose fraction of non-zero columns reaches ratio_threshold.
+    ratio_threshold=0 preserves the legacy behaviour (any column non-zero)."""
     feat = df.iloc[:, :-4]
     if ratio_threshold <= 0:
         idx = feat.index[~(feat == 0).all(axis=1)]
@@ -1339,12 +1349,13 @@ def _detect_non_zero_date(df: pd.DataFrame, ratio_threshold: float = 0.0):
 
 
 def _expand_sentiment_features(df: pd.DataFrame, stock_id) -> pd.DataFrame:
-    """將 sentiment CSV（US / TW / ticker 三欄 0-100 分數）展開為衍生特徵。
+    """Expand a sentiment CSV (three 0-100 score columns: US / TW / ticker) into derived features.
 
-    輸入 df：index=date，欄位包含 'US_sentiment_score','TW_sentiment_score',
-    str(stock_id)，最後 4 欄為 y_10..y_60 標籤。
-    回傳：concat(衍生特徵, 原最後 4 欄標籤)。共通 preprocess (corr 過濾 / scaler /
-    sanitize) 會在後續步驟對本函式輸出欄位再處理。
+    Input df: index=date; columns include 'US_sentiment_score',
+    'TW_sentiment_score', str(stock_id); the last 4 columns are the y_10..y_60 labels.
+    Returns concat(derived features, original 4 label columns). The shared
+    downstream preprocessing (corr filter / scaler / sanitize) runs on this
+    function's output columns.
     """
     label_cols = df.columns[-4:].tolist()
     labels = df[label_cols]
@@ -1384,10 +1395,10 @@ def _expand_sentiment_features(df: pd.DataFrame, stock_id) -> pd.DataFrame:
     return pd.concat([out, labels], axis=1)
 
 
-# macro 欄位分組：
-#   - 穩態 / 有界：保留 level
-#   - 非平穩價格：轉 log-return / rolling z-score
-#   - 選擇權量、期貨淨額：先 ffill(0→NaN) 再做對應轉換
+# macro column groups:
+#   - Stationary / bounded: keep level.
+#   - Non-stationary prices: convert to log-return / rolling z-score.
+#   - Option volumes and futures net: first ffill(0->NaN), then apply the matching transform.
 MACRO_STATIONARY_COLS = ('Price_rate_3m', 'Price_rate_10y', 'Price_FX', 'Price_VIX')
 MACRO_PRICE_LEVEL_COLS = (
     'Price_oil', 'Price_gold', 'Price_copper',
@@ -1399,29 +1410,31 @@ MACRO_SIGNED_LEVEL_COLS = ('Price_TX03F',)
 
 
 def _expand_macro_features(df: pd.DataFrame) -> pd.DataFrame:
-    """將 macro CSV 轉為近平穩特徵：非平穩價格 → log-return / z-score；
-    有界欄位保留 level；選擇權量 → log1p + diff20；期貨淨額 → signed log1p。
+    """Convert the macro CSV to near-stationary features: non-stationary prices ->
+    log-return / z-score; bounded columns keep their level; option volume ->
+    log1p + diff20; futures net -> signed log1p.
 
-    0 在 macro CSV 裡屬缺值（假日/資料缺漏），先 replace(0→NaN).ffill() 再轉換。
+    In the macro CSV, 0 means missing (holiday / gap), so we do replace(0->NaN).ffill()
+    before transforming.
     """
     label_cols = df.columns[-4:].tolist()
     labels = df[label_cols]
     out = pd.DataFrame(index=df.index)
 
-    # 1) 穩態 / 有界欄位保留 level
+    # 1) Stationary / bounded columns: keep the level
     for c in MACRO_STATIONARY_COLS:
         if c in df.columns:
             s = pd.to_numeric(df[c], errors='coerce')
-            # 利率/FX/VIX 的 0 通常也是缺值（尤其利率）→ ffill
+            # 0 in rate / FX / VIX is usually also missing (especially rates) -> ffill
             if c in ('Price_rate_3m', 'Price_rate_10y', 'Price_FX'):
                 s = s.replace(0, np.nan).ffill()
             out[c] = s
 
-    # 2) term spread（若 rate_3m / rate_10y 都有）
+    # 2) term spread (if both rate_3m and rate_10y are present)
     if 'Price_rate_3m' in out.columns and 'Price_rate_10y' in out.columns:
         out['term_spread'] = out['Price_rate_10y'] - out['Price_rate_3m']
 
-    # 3) VIX 另加 log(vix) 與 z-score
+    # 3) VIX also adds log(vix) and its z-score
     if 'Price_VIX' in out.columns:
         vix = out['Price_VIX'].replace(0, np.nan).ffill()
         out['log_vix'] = np.log(vix)
@@ -1429,7 +1442,7 @@ def _expand_macro_features(df: pd.DataFrame) -> pd.DataFrame:
         sd = vix.rolling(60, min_periods=30).std().replace(0, np.nan)
         out['vix_z60'] = (vix - m) / sd
 
-    # 4) 非平穩價格 → log-return + rolling z
+    # 4) Non-stationary prices -> log-return + rolling z-score
     for c in MACRO_PRICE_LEVEL_COLS:
         if c not in df.columns:
             continue
@@ -1440,7 +1453,7 @@ def _expand_macro_features(df: pd.DataFrame) -> pd.DataFrame:
         sd = p.rolling(60, min_periods=30).std().replace(0, np.nan)
         out[f'{c}_z60'] = (p - m) / sd
 
-    # 5) 台指選擇權量 → log1p + diff20；另加 put/call log-ratio
+    # 5) TAIEX option volumes -> log1p + diff20; also add put/call log-ratio
     vol_logs = {}
     for c in MACRO_VOL_COLS:
         if c not in df.columns:
@@ -1453,7 +1466,7 @@ def _expand_macro_features(df: pd.DataFrame) -> pd.DataFrame:
     if 'Price_TX03P' in vol_logs and 'Price_TX03C' in vol_logs:
         out['tx03_pc_logratio'] = vol_logs['Price_TX03P'] - vol_logs['Price_TX03C']
 
-    # 6) 期貨淨額（可正可負） → signed log1p + diff
+    # 6) Futures net (can be positive or negative) -> signed log1p + diff
     for c in MACRO_SIGNED_LEVEL_COLS:
         if c not in df.columns:
             continue
@@ -1468,27 +1481,31 @@ def _expand_macro_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ===================================================================
-# tech_trend / fundamental / moment expander（pass-through 友善版）
-# 設計原則：
-#   1. 所有輸出都是「確定性 + 硬 clip」，不依賴訓練區間分位數，
-#      因此 FEATURE_PREPROCESS=off 時也能直接送入模型。
-#   2. 僅改動明顯非平穩或重尾的欄位（raw OHLCV、成長率、PEG、cci、acc_*、vpt），
-#      保留原本就已平穩/有界的欄位（sma/hullma/bias/alpha/RSI/K/D 等）不動，
-#      將新舊模型差異降到最小。
-#   3. 輸出值域大致落在 ±3 內，配合 signed log1p / 固定 clip 壓住極端尾部。
+# tech_trend / fundamental / moment expanders (pass-through friendly version).
+# Design principles:
+#   1. All outputs are deterministic and hard-clipped; they do not depend on
+#      training-window quantiles, so FEATURE_PREPROCESS=off can feed them
+#      straight into the model.
+#   2. Only obviously non-stationary or heavy-tailed columns (raw OHLCV,
+#      growth rates, PEG, cci, acc_*, vpt) are transformed. Columns that are
+#      already stationary / bounded (sma / hullma / bias / alpha / RSI / K / D
+#      etc.) are left untouched to minimize old-vs-new model divergence.
+#   3. Output values sit roughly within +/-3 thanks to signed log1p / fixed
+#      clips that damp extreme tails.
 # ===================================================================
 
 
 def _expand_tech_trend_features(df: pd.DataFrame) -> pd.DataFrame:
-    """tech_trend CSV: 將 open/high/low/close/volume 轉成尺度無關特徵，
-    osc 除以 close 做成比率；其餘（sma_*/hullma_*/mmi_*/aroon_osc/bb/bias/alpha）保持原樣。
+    """tech_trend CSV: convert open/high/low/close/volume into scale-free features;
+    osc becomes a ratio (osc / close); the remaining columns
+    (sma_*/hullma_*/mmi_*/aroon_osc/bb/bias/alpha) are left as-is.
     """
     label_cols = df.columns[-4:].tolist()
     labels = df[label_cols]
 
     out = pd.DataFrame(index=df.index)
 
-    # 1) 原本就平穩/有界的欄位：保留
+    # 1) Columns that are already stationary / bounded: keep as-is
     passthrough_cols = [
         'sma_5', 'sma_10', 'sma_20', 'sma_60', 'sma_120',
         'hullma_20', 'hullma_60', 'hullma_120',
@@ -1499,13 +1516,13 @@ def _expand_tech_trend_features(df: pd.DataFrame) -> pd.DataFrame:
         if c in df.columns:
             out[c] = pd.to_numeric(df[c], errors='coerce')
 
-    # 2) osc：price-scaled → 轉為與 close 同尺度的比率
+    # 2) osc: price-scaled -> convert to a close-scaled ratio
     if 'osc' in df.columns and 'close' in df.columns:
         close_raw = pd.to_numeric(df['close'], errors='coerce').replace(0, np.nan).ffill()
         osc_raw = pd.to_numeric(df['osc'], errors='coerce')
         out['osc_pct'] = (osc_raw / close_raw).clip(-0.3, 0.3)
 
-    # 3) close → log-return 1/5/20（丟掉絕對價格）
+    # 3) close -> log-return 1/5/20 (drop absolute price)
     if 'close' in df.columns:
         close = pd.to_numeric(df['close'], errors='coerce').replace(0, np.nan).ffill()
         log_close = np.log(close)
@@ -1513,7 +1530,7 @@ def _expand_tech_trend_features(df: pd.DataFrame) -> pd.DataFrame:
         out['ret_5']  = (log_close - log_close.shift(5)).clip(-0.5, 0.5)
         out['ret_20'] = (log_close - log_close.shift(20)).clip(-0.8, 0.8)
 
-    # 4) (high - low) / close：日內波動；gap = log(open / prev_close)
+    # 4) (high - low) / close: intraday volatility; gap = log(open / prev_close)
     if {'high', 'low', 'close'}.issubset(df.columns):
         h = pd.to_numeric(df['high'], errors='coerce')
         l = pd.to_numeric(df['low'], errors='coerce')
@@ -1524,7 +1541,7 @@ def _expand_tech_trend_features(df: pd.DataFrame) -> pd.DataFrame:
         c = pd.to_numeric(df['close'], errors='coerce').replace(0, np.nan).ffill()
         out['gap'] = (np.log(o) - np.log(c.shift(1))).clip(-0.15, 0.15)
 
-    # 5) volume：轉為相對 20D 平均的比率
+    # 5) volume: convert to a ratio against the 20-day mean
     if 'volume' in df.columns:
         v = pd.to_numeric(df['volume'], errors='coerce').clip(lower=0)
         v_ma = v.rolling(20, min_periods=5).mean().replace(0, np.nan)
@@ -1534,12 +1551,12 @@ def _expand_tech_trend_features(df: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([out, labels], axis=1)
 
 
-# fundamental 欄位分組（依 Feature_Cmoney_update.py）：
-#   - PE_trailing / PBR：rolling 3Y river level percentile，已在 0..1
-#   - DY：年化殖利率 %，典型 0..15
-#   - Gross：毛利率 %，典型 0..100
-#   - PEG：PE / growth，可正可負、可爆量
-#   - R_*/E_*/Op_*/Gross_qoq/EPS_qoq：成長率 %，小基期時易爆量
+# fundamental column groups (see Feature_Cmoney_update.py):
+#   - PE_trailing / PBR: rolling 3Y river-level percentile, already in 0..1.
+#   - DY: annualized dividend yield %, typical range 0..15.
+#   - Gross: gross margin %, typical range 0..100.
+#   - PEG: PE / growth; can be positive or negative and blow up.
+#   - R_* / E_* / Op_* / Gross_qoq / EPS_qoq: growth rate %, spikes on small base periods.
 FUNDAMENTAL_GROWTH_COLS = (
     'R_mom', 'R_yoy', 'R_acc_yoy',
     'E_qoq', 'E_yoy', 'E_acc_yoy',
@@ -1549,42 +1566,42 @@ FUNDAMENTAL_GROWTH_COLS = (
 
 
 def _expand_fundamental_features(df: pd.DataFrame) -> pd.DataFrame:
-    """fundamental CSV: 對 bounded 欄位重新置中到 ±1 附近；
-    對 PEG/成長率做 clip + signed log1p，壓制小基期爆量。
+    """fundamental CSV: recenter bounded columns near +/-1; apply clip +
+    signed log1p to PEG and growth-rate columns to damp small-base blowups.
     """
     label_cols = df.columns[-4:].tolist()
     labels = df[label_cols]
     out = pd.DataFrame(index=df.index)
 
-    # 1) river-level 百分位（0..1） → 置中到 ±1
+    # 1) river-level percentile (0..1) -> recenter to +/-1
     for c in ('PE_trailing', 'PBR'):
         if c in df.columns:
             s = pd.to_numeric(df[c], errors='coerce').clip(0.0, 1.0)
             out[c] = (s - 0.5) * 2.0
 
-    # 2) DY：殖利率 %，clip 到 [0, 20] 後 /10 → 約 [0, 2]
+    # 2) DY: dividend yield %, clipped to [0, 20] then /10 -> roughly [0, 2]
     if 'DY' in df.columns:
         s = pd.to_numeric(df['DY'], errors='coerce').clip(0.0, 20.0)
         out['DY'] = s / 10.0
 
-    # 3) Gross：毛利率 %，clip 到 [-20, 100] 後 /100 → 約 [-0.2, 1.0]
+    # 3) Gross: gross margin %, clipped to [-20, 100] then /100 -> roughly [-0.2, 1.0]
     if 'Gross' in df.columns:
         s = pd.to_numeric(df['Gross'], errors='coerce').clip(-20.0, 100.0)
         out['Gross'] = s / 100.0
 
-    # 4) 成長率（%）：硬 clip ±300，再 sign * log1p(|x|/100)
-    #    x=100% → 0.69；x=300% → 1.39；保留符號
+    # 4) Growth rate (%): hard-clip to +/-300, then sign * log1p(|x|/100)
+    #    x=100% -> 0.69; x=300% -> 1.39; sign preserved
     for c in FUNDAMENTAL_GROWTH_COLS:
         if c in df.columns:
             s = pd.to_numeric(df[c], errors='coerce').clip(-300.0, 300.0)
             out[c] = np.sign(s) * np.log1p(np.abs(s) / 100.0)
 
-    # 5) PEG：ratio（可負可大）；clip ±10 後 sign * log1p(|x|)
+    # 5) PEG: ratio (can be negative or large); clip to +/-10 then sign * log1p(|x|)
     if 'PEG' in df.columns:
         s = pd.to_numeric(df['PEG'], errors='coerce').clip(-10.0, 10.0)
         out['PEG'] = np.sign(s) * np.log1p(np.abs(s))
 
-    # 6) CMDTY（若存在）：商品指數 level → 20D log-return
+    # 6) CMDTY (if present): commodity-index level -> 20-day log-return
     if 'CMDTY' in df.columns:
         p = pd.to_numeric(df['CMDTY'], errors='coerce').replace(0, np.nan).ffill()
         out['CMDTY_logret20'] = (np.log(p) - np.log(p.shift(20))).clip(-0.5, 0.5)
@@ -1594,8 +1611,9 @@ def _expand_fundamental_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _expand_moment_features(df: pd.DataFrame) -> pd.DataFrame:
-    """moment CSV: 將 RSI/K/D/ADX/WR 置中到 ±1；CCI clip ±300 後 /100；
-    acc_* clip 後取 log；vpt 改為 diff 的 rolling z；beta clip ±3。
+    """moment CSV: recenter RSI/K/D/ADX/WR to +/-1; CCI clipped to +/-300 then /100;
+    acc_* clipped then log; vpt replaced with the rolling z-score of its diff;
+    beta clipped to +/-3.
     """
     label_cols = df.columns[-4:].tolist()
     labels = df[label_cols]
@@ -1607,23 +1625,23 @@ def _expand_moment_features(df: pd.DataFrame) -> pd.DataFrame:
             s = pd.to_numeric(df[c], errors='coerce').clip(0.0, 100.0)
             out[c] = (s - 50.0) / 50.0
 
-    # 2) wr 原本是 [-100, 0] → (x+50)/50 → [-1, 1]
+    # 2) wr is originally in [-100, 0] -> (x+50)/50 -> [-1, 1]
     if 'wr' in df.columns:
         s = pd.to_numeric(df['wr'], errors='coerce').clip(-100.0, 0.0)
         out['wr'] = (s + 50.0) / 50.0
 
-    # 3) cci：heavy-tailed 約 ±200~±400，clip ±300 後 /100 → [-3, 3]
+    # 3) cci: heavy-tailed around +/-200 to +/-400; clip to +/-300 then /100 -> [-3, 3]
     if 'cci' in df.columns:
         s = pd.to_numeric(df['cci'], errors='coerce').clip(-300.0, 300.0)
         out['cci'] = s / 100.0
 
-    # 4) acc_*：價格比率中心 ~1.0；clip [0.5, 2.0] 後 log → [-0.69, 0.69]
+    # 4) acc_*: price ratios centered near 1.0; clip to [0.5, 2.0] then log -> [-0.69, 0.69]
     for c in ('acc_5', 'acc_10', 'acc_20', 'acc_60', 'acc_120'):
         if c in df.columns:
             s = pd.to_numeric(df[c], errors='coerce').clip(0.5, 2.0)
             out[c] = np.log(s)
 
-    # 5) vpt：累積量，非平穩 → 取 diff 後做 60D rolling z
+    # 5) vpt: cumulative volume, non-stationary -> diff then 60-day rolling z-score
     if 'vpt' in df.columns:
         s = pd.to_numeric(df['vpt'], errors='coerce')
         d = s.diff()
@@ -1631,7 +1649,7 @@ def _expand_moment_features(df: pd.DataFrame) -> pd.DataFrame:
         sd = d.rolling(60, min_periods=20).std().replace(0, np.nan)
         out['vpt_z60'] = ((d - m) / sd).clip(-3.0, 3.0)
 
-    # 6) beta：rolling OLS slope，clip 極端值
+    # 6) beta: rolling OLS slope; clip extreme values
     if 'beta' in df.columns:
         s = pd.to_numeric(df['beta'], errors='coerce').clip(-3.0, 3.0)
         out['beta'] = s
@@ -1641,7 +1659,7 @@ def _expand_moment_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def run_isolated_stock_model_jobs(stock_ids, model_types):
-    """每個 stock_id/model_type 以獨立子程序執行，避免長跑記憶體累積。"""
+    """Run each (stock_id, model_type) in its own subprocess to avoid long-run memory build-up."""
     script_path = os.path.abspath(__file__)
     total_jobs = len(stock_ids) * len(model_types)
     failed_jobs = []
@@ -1688,11 +1706,11 @@ def run_isolated_stock_model_jobs(stock_ids, model_types):
     if failed_jobs:
         raise RuntimeError(f"Isolated jobs failed: {failed_jobs}")
 
-# 記錄本次批次訓練中失敗的 (stock_id, model_type)
+# Track (stock_id, model_type) pairs that failed during this batch
 error_list = []
 #train_progress = symbols.reindex(sorted([os.path.basename(i)[6:-4] for i in glob('features/macro_*.csv')])).dropna().index.to_list() # ticker sorted
 
-# 主訓練入口：可視需求擴充 stock_id 或 model_type 清單
+# Main training entry: extend the stock_id / model_type list as needed
 stock_ids = [x.strip() for x in os.getenv('STOCK_IDS', 'AXP,AMGN,AMZN,AAPL,BA,CAT,CSCO,CVX,GS,HD,HON,IBM,JNJ,KO,JPM,MCD,MMM,MRK,MSFT,NVDA,NKE,PG,TRV,UNH,CRM,VZ,V,WMT,DIS,SHW').split(',') if x.strip()]
 model_types = [
     x.strip() for x in os.getenv(
@@ -1702,7 +1720,8 @@ model_types = [
 ]
 
 if ISOLATE_STOCK_MODEL_RUNS and (not ISOLATED_CHILD_RUN) and (len(stock_ids) * len(model_types) > 1):
-    # 特徵前處理總開關：父程序先問（或讀 env），寫回 os.environ 讓所有子程序繼承
+    # Feature-preprocessing master switch: parent asks (or reads env) once,
+    # writes back into os.environ so every child inherits the choice
     DO_FEATURE_PREPROCESS = _resolve_feature_preprocess()
     os.environ['FEATURE_PREPROCESS'] = '1' if DO_FEATURE_PREPROCESS else '0'
     print(f"[PREPROCESS] feature preprocessing = {'ON' if DO_FEATURE_PREPROCESS else 'OFF (pass-through)'} (will propagate to child jobs)")
@@ -1715,7 +1734,7 @@ if ISOLATE_STOCK_MODEL_RUNS and (not ISOLATED_CHILD_RUN) and (len(stock_ids) * l
     print("[ISOLATE] all child jobs finished")
     sys.exit(0)
 
-# 單程序模式（或子程序）：直接在此決定
+# Single-process mode (or already-a-child): decide right here
 DO_FEATURE_PREPROCESS = _resolve_feature_preprocess()
 os.environ['FEATURE_PREPROCESS'] = '1' if DO_FEATURE_PREPROCESS else '0'
 print(f"[PREPROCESS] feature preprocessing = {'ON' if DO_FEATURE_PREPROCESS else 'OFF (pass-through)'}")
@@ -1730,53 +1749,61 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
         try:
             TRIAL_PREP_CACHE.clear()
             print(f"[CACHE] reset trial prep cache for {stock_id} {model_type}")
-            # ===================== 1) 讀取資料 =====================
+            # ===================== 1) Load data =====================
             print(f"[TRAIN] {stock_id} {model_type}")
             X_y_all = pd.read_csv(platform_path(f"{ATT_DATA_DIR}/{model_type}_{stock_id}.csv"), index_col=0, parse_dates=True)                             
 
-            # sentiment 面向：原始 CSV 僅 3 欄（US/TW/個股情緒分數），展開為動能/相對
-            # 強弱/rolling z-score 等衍生特徵，避免模型看到過度稀疏或常數化的輸入
+            # sentiment aspect: raw CSV has only 3 columns (US / TW / per-stock
+            # sentiment score); expand into momentum / relative-strength /
+            # rolling-z features so the model does not see overly sparse or
+            # constant inputs
             if model_type == 'sentiment':
                 X_y_all = _expand_sentiment_features(X_y_all, stock_id)
 
-            # trade 面向：先壓制重尾欄位（signed log1p），讓後續 sanitize / scaler 穩定
+            # trade aspect: dampen heavy-tailed columns first (signed log1p) so the downstream sanitize / scaler stays stable
             if model_type == 'trade':
                 X_y_all = _prepare_trade_features(X_y_all)
 
-            # macro 面向：價格水準高度非平穩（近期屢破訓練期最高點），一律轉為
-            # log-return / rolling z / log1p 等近平穩特徵；保留 rate / FX / VIX level
+            # macro aspect: price levels are highly non-stationary (recent
+            # values keep exceeding the training window max); convert to
+            # near-stationary log-return / rolling z / log1p features; keep rate
+            # / FX / VIX levels as-is
             if model_type == 'macro':
                 X_y_all = _expand_macro_features(X_y_all)
 
-            # tech_trend 面向：raw OHLCV 非平穩（近年價格遠高於訓練期），一律轉為
-            # log-return / (hl)/close / vol_ratio 等尺度無關特徵；sma/hullma/bias/alpha 保留
+            # tech_trend aspect: raw OHLCV is non-stationary (recent prices
+            # dwarf the training window); convert to scale-free features
+            # log-return / (hl)/close / vol_ratio; keep sma / hullma / bias /
+            # alpha as-is
             if model_type == 'tech_trend':
                 X_y_all = _expand_tech_trend_features(X_y_all)
 
-            # fundamental 面向：PE/PBR/DY/Gross 做 bounded rescale；
-            # 成長率/PEG 做 clip + signed log1p，避免小基期爆量
+            # fundamental aspect: bounded rescale for PE / PBR / DY / Gross;
+            # clip + signed log1p for growth rate & PEG to guard against
+            # small-base blowups
             if model_type == 'fundamental':
                 X_y_all = _expand_fundamental_features(X_y_all)
 
-            # moment 面向：RSI/K/D/ADX/WR 置中到 ±1；CCI 硬 clip；acc_* 取 log；
-            # vpt 改為 diff rolling z；beta clip
+            # moment aspect: recenter RSI / K / D / ADX / WR to +/-1; hard-clip
+            # CCI; log(acc_*); replace vpt with the rolling z-score of its diff;
+            # clip beta
             if model_type == 'moment':
                 X_y_all = _expand_moment_features(X_y_all)
 
             #Find the ealist vaild start date where all figures are positive
             if model_type == 'sentiment':
-                # sentiment CSV 自 2015-01-05 起就是有效數據，直接採用
+                # sentiment CSV has been valid since 2015-01-05; use as-is
                 train_start = '2015-01-06'
             elif model_type == 'trade':
-                # trade 早期 (1999~2007) 大量欄位為 0，改以「≥50% 欄位非零」為準
+                # In the early trade window (1999-2007) many columns are 0; require ">=50% non-zero columns" instead
                 non_zero_date = _detect_non_zero_date(X_y_all, ratio_threshold=0.5)
                 train_start = datetime.strftime((non_zero_date.date()+timedelta(days=1)), '%Y-%m-%d')
             elif model_type == 'macro':
-                # macro 早期 (1994~2007) 多數欄位為 0；用「≥90% 非零」為準
+                # In the early macro window (1994-2007) most columns are 0; require ">=90% non-zero" instead
                 non_zero_date = _detect_non_zero_date(X_y_all, ratio_threshold=0.9)
                 train_start = datetime.strftime((non_zero_date.date()+timedelta(days=1)), '%Y-%m-%d')
             elif model_type in ('tech_trend', 'moment'):
-                # tech_trend: sma_120 需 120 日；moment: acc_120/vpt_z60 需 60~120 日
+                # tech_trend: sma_120 needs 120 days; moment: acc_120 / vpt_z60 need 60-120 days
                 non_zero_date = _detect_non_zero_date(X_y_all, ratio_threshold=0.5)
                 train_start = datetime.strftime((non_zero_date.date()+timedelta(days=1)), '%Y-%m-%d')
             else:
@@ -1792,14 +1819,14 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
             test_start = '2026-01-01'
             test_end = X_y_all.index.max().strftime('%Y-%m-%d')
             
-            # ===================== 2) 特徵前處理 =====================
+            # ===================== 2) Feature preprocessing =====================
             if not DO_FEATURE_PREPROCESS:
-                # pass-through：不做相關過濾、不做 sanitize、不做 scaler
-                # 仍要對齊 lookback_start 起始並存一個「透明」bundle，讓推論端自動跳過 transform
+                # pass-through: skip correlation filter, sanitize, and scaler
+                # Still align to lookback_start and save a "transparent" bundle so the inference side auto-skips the transform
                 lookback_start = X_y_all.loc[:train_start].iloc[-n_timesteps+1:].index.min()
                 feature_cols = X_y_all.columns[:-4]
 
-                # 僅做最基本的 NaN/inf 清理，避免訓練階段崩潰（非 scaling）
+                # Minimal NaN / inf cleanup only to avoid training-time crashes (no scaling)
                 raw_features = X_y_all.loc[:, feature_cols].apply(pd.to_numeric, errors='coerce').astype(np.float64)
                 raw_features = raw_features.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
@@ -1813,9 +1840,10 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
                 X_y_all = pd.concat([raw_features, X_y_all.iloc[:, -4:]], axis=1).loc[lookback_start:]
                 print(f"[PREPROCESS] skipped for {stock_id}/{model_type} (pass-through bundle saved)")
             else:
-                # (a) 移除高相關特徵，降低共線性（只用 train 區間估計）
+                # (a) Drop highly correlated features to reduce collinearity (estimated on train slice only)
                 if model_type in ('sentiment', 'macro', 'fundamental', 'tech_trend', 'moment'):
-                    # 衍生特徵刻意保留互補訊號（短/中/長 return、成長率各期等），跳過 corr 過濾
+                    # Derived features intentionally keep complementary signals
+                    # (short/mid/long return, multi-period growth rates, etc.); skip corr filter
                     selected_feature_cols = X_y_all.columns[:-4].tolist()
                 else:
                     train_feature_slice = X_y_all.loc[:train_end].iloc[:, :-4]
@@ -1827,8 +1855,9 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
                     ).columns.tolist()
                 X_y_all = X_y_all[selected_feature_cols + X_y_all.iloc[:, -4:].columns.tolist()]
 
-                # (b) expander 後的特徵多為 bounded / z-score / log-return / signed log1p，用
-                #     RobustScaler 穩健縮放；其餘（若未來新增的面向）維持 PowerTransformer。
+                # (b) Post-expander features are mostly bounded / z-score /
+                #     log-return / signed log1p, so use RobustScaler; keep
+                #     PowerTransformer for any future aspects.
                 if model_type in ('sentiment', 'macro', 'fundamental', 'tech_trend', 'moment'):
                     scaler = RobustScaler(quantile_range=(5.0, 95.0))
                 else:
@@ -1837,12 +1866,12 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
                 lookback_start = X_y_all.loc[:train_start].iloc[-n_timesteps+1:].index.min()
                 feature_cols = X_y_all.columns[:-4]
 
-                # (c) 先將原始特徵清理成可安全縮放的有限值
+                # (c) First cast raw features to finite values that scale safely
                 sanitize_stats = fit_sanitize_statistics(X_y_all.loc[lookback_start:train_end, feature_cols])
                 clean_features = apply_sanitize_statistics(X_y_all.loc[:, feature_cols], sanitize_stats)
                 fit_features = clean_features.loc[lookback_start:train_end]
 
-                # (d) 轉為 numpy 並再次防禦 NaN/inf
+                # (d) Convert to numpy and guard against NaN / inf again
                 fit_array = np.nan_to_num(
                     fit_features.to_numpy(dtype=np.float64, copy=True),
                     nan=0.0,
@@ -1856,7 +1885,7 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
                     neginf=0.0
                 )
 
-                # (e) 若 PowerTransformer 因資料形態不穩定而失敗，退回 RobustScaler
+                # (e) Fall back to RobustScaler if PowerTransformer fails due to unstable input
                 try:
                     scaler.fit(fit_array)
                     X_scaled = scaler.transform(all_array)
@@ -1876,8 +1905,9 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
                 X_y_all = pd.concat([pd.DataFrame(X_scaled, index=X_y_all.index, columns=feature_cols), X_y_all.iloc[:, -4:]], axis=1).loc[lookback_start:]
             # ============================================='''
             
-            # ===================== 3) 建立監督式資料 =====================
-            # 為每個 lookback_window 預先建立訓練資料，供 AutoML trial 選擇
+            # ===================== 3) Build supervised data ====================
+            # Pre-build training data for each lookback_window so AutoML trials
+            # can pick between them.
             windowed_train_data = {}
             for lookback_window in LOOKBACK_WINDOW_CHOICES:
                 X_lb, y_lb = val_windows(X_y_all, ref_day=lookback_window, period=20)
@@ -1900,8 +1930,8 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
             init_x, _ = windowed_train_data[init_lookback]
             init_input_shape = (init_x.shape[1], init_x.shape[2])
            
-            # ===================== 4) 建立分散式訓練策略 =====================
-            # 單卡用 OneDeviceStrategy 較穩定；多卡才使用 MirroredStrategy
+            # ===================== 4) Build distribution strategy ===============
+            # Prefer OneDeviceStrategy on single GPU (more stable); MirroredStrategy on multi-GPU.
             gpu_count = len(tf.config.list_physical_devices('GPU'))
             if gpu_count > 1:
                 strategy = tf.distribute.MirroredStrategy()
@@ -1910,11 +1940,11 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
             else:
                 strategy = tf.distribute.OneDeviceStrategy(device='/CPU:0')
 
-            # ===================== 5) 兩階段超參數搜尋 =====================
-            # Stage 1: 廣搜（較少 epoch，快速探索）
+            # ===================== 5) Two-stage hyperparameter search ===========
+            # Stage 1: broad search (fewer epochs; explore quickly).
             project_name = f'ATT_{model_type}_{stock_id}'
             tuner_stage1 = TunerCV(
-                hypermodel=HyperTCN(input_shape=init_input_shape, strategy=strategy), # 需先提供有效 shape；run_trial 會依 lookback 動態覆寫
+                hypermodel=HyperTCN(input_shape=init_input_shape, strategy=strategy),  # provide a valid shape now; run_trial overrides it per lookback
                 oracle=kt.oracles.BayesianOptimizationOracle(
                     objective=kt.Objective('val_recall_score', 'max'),
                     max_trials=STAGE1_MAX_TRIALS
@@ -1930,7 +1960,7 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
                 epochs=STAGE1_EPOCHS,
             )
 
-            # Stage 2: 精搜（延續同一 project，增加 trial 上限並用較多 epoch）
+            # Stage 2: fine-grained search (continue same project; more trials, more epochs).
             try:
                 tuner_stage2 = TunerCV(
                     hypermodel=HyperTCN(input_shape=init_input_shape, strategy=strategy),
@@ -1967,7 +1997,7 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
                     epochs=STAGE2_EPOCHS,
                 )
 
-            # 將最佳 trial 摘要（含 lookback_window）寫入檔案，供固定參數訓練腳本直接讀取
+            # Write the best-trial summary (incl. lookback_window) to disk for the fixed-params trainer to consume.
             best_trials = tuner_stage2.oracle.get_best_trials(num_trials=1)
             if len(best_trials) > 0:
                 best_trial = best_trials[0]
@@ -1991,11 +2021,11 @@ for stock_id in stock_ids: # symbols.index.tolist():,,'2317','2308'
             #device.reset()
             
         except Exception as e :
-            # 發生例外時保留最精簡 traceback，並記錄失敗組合，避免整批中斷
+            # On exception, keep a minimal traceback and record the failed combo so the whole batch does not abort.
             traceback.print_exc(limit=1, file=sys.stdout)
             error_list.append([stock_id, model_type])
             continue
-        # 每個標的訓練完成後清理 graph 與 Python 記憶體
+        # Clean up the graph and Python memory after each ticker finishes
         K.clear_session()    
         gc.collect()
 

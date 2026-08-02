@@ -1,31 +1,31 @@
 # =============================================================================
 # DES_update_ATT_US_range.py
-# 美股 (Dow 30) 版 DES 回測：指定區間 + 特徵 Ablation + CLI 模式。
-# 基於 DES_update_ATT-sentiment_range.py 改寫，配合 DES_update_ATT_US.py 的
-# US 路徑/慣例 (4 facets / per-share / zero fee / 1M USD)。
+# US (Dow 30) DES backtest with configurable window, feature ablation, and CLI mode.
+# Adapted from DES_update_ATT-sentiment_range.py to match the US paths / conventions
+# used in DES_update_ATT_US.py (4 facets / per-share / zero fee / 1M USD).
 #
-# 預設區間：2024-01-01 ~ 2026-03-31
+# Default window: 2024-01-01 ~ 2026-03-31
 #
-# Cache 路徑規則：
-#   FULL 模式 (未指定 --drop) → 重用 DES_update_ATT_US.py 的 cache:
+# Cache-path rules:
+#   FULL mode (no --drop)     -> reuse DES_update_ATT_US.py cache:
 #       DES_model_US/        RF_model_US/
 #       model_pred_DES_US/   model_pred_RF_US/
-#       → 不會重訓，只是用既有預測重跑回測 (套指定區間)。
-#   ABLATION 模式 (有指定 --drop) → 寫到 ablation 路徑：
-#       DES_model_US_ablation/   RF_model_US_ablation/   (與 base 共用模型 pkl)
-#       model_pred_DES_US_ablation_range/   (range 專屬預測)
+#       (no retraining; just re-runs the backtest over the requested window)
+#   ABLATION mode (--drop set)-> writes to ablation paths:
+#       DES_model_US_ablation/  RF_model_US_ablation/  (shares base model pkl)
+#       model_pred_DES_US_ablation_range/  (range-specific predictions)
 #
-# 用法：
+# Usage:
 #   python "DES_update_ATT_US_range.py"
-#       → 互動式：輸入 ticker / drop 特徵 / 區間
+#       -> interactive: ticker / drop features / window
 #   python "DES_update_ATT_US_range.py" --ticker AAPL
-#       → 跑 AAPL，全部特徵、預設區間
+#       -> AAPL, all features, default window
 #   python "DES_update_ATT_US_range.py" --ticker AAPL --drop macro
-#       → 跑 AAPL，drop macro、預設區間 (Ablation)
+#       -> AAPL, drop macro, default window (ablation)
 #   python "DES_update_ATT_US_range.py" --ticker AAPL --start 2024-01-01 --end 2026-03-31 --drop macro,moment
-#       → 跑 AAPL，drop macro+moment，限定回測區間
+#       -> AAPL, drop macro+moment, custom window
 #   python "DES_update_ATT_US_range.py" --ticker AAPL --force-retrain
-#       → 忽略既有 pred/pkl cache，強制重訓 DES/RF
+#       -> ignore existing pred/pkl cache, force retrain DES/RF
 # =============================================================================
 
 import argparse
@@ -68,7 +68,7 @@ import glob
 from pathlib import Path
 warnings.filterwarnings("ignore")
 
-# deslib 0.3.7 vs sklearn>=1.7 相容性
+# deslib 0.3.7 vs sklearn>=1.7 compatibility
 import sklearn.base
 if not hasattr(sklearn.base.BaseEstimator, '_validate_data'):
     from sklearn.utils.validation import validate_data as _sklearn_validate_data
@@ -76,7 +76,7 @@ if not hasattr(sklearn.base.BaseEstimator, '_validate_data'):
 
 
 # =============================================================================
-# Workspace 路徑
+# Workspace paths
 # =============================================================================
 _THIS_DIR = Path(__file__).resolve().parent
 if str(_THIS_DIR) not in sys.path:
@@ -87,16 +87,16 @@ from feature._us_data import load_price_frames  # noqa: E402
 EXPERIMENT_ROOT = _THIS_DIR / 'experiment'
 FEATURE_ROOT    = _THIS_DIR / 'feature'
 
-# FULL 模式 cache (與 DES_update_ATT_US.py 共用)
+# FULL mode cache (shared with DES_update_ATT_US.py)
 DES_MODEL_DIR = _THIS_DIR / 'DES_model_US'
 PRED_DES_DIR  = _THIS_DIR / 'model_pred_DES_US'
 RF_MODEL_DIR  = _THIS_DIR / 'RF_model_US'
 PRED_RF_DIR   = _THIS_DIR / 'model_pred_RF_US'
 
-# ABLATION 路徑
-DES_MODEL_DIR_ABL  = _THIS_DIR / 'DES_model_US_ablation'              # 模型 pkl 與 base 共用
+# ABLATION paths
+DES_MODEL_DIR_ABL  = _THIS_DIR / 'DES_model_US_ablation'              # model pkl shared with base
 RF_MODEL_DIR_ABL   = _THIS_DIR / 'RF_model_US_ablation'
-PRED_DIR_ABL_RANGE = _THIS_DIR / 'model_pred_DES_US_ablation_range'   # range 專屬預測
+PRED_DIR_ABL_RANGE = _THIS_DIR / 'model_pred_DES_US_ablation_range'   # range-specific predictions
 
 ENSEMBLE_DIR = _THIS_DIR / 'model_output_US'
 EVAL_DIR     = _THIS_DIR / 'evaluation'
@@ -111,27 +111,27 @@ for _p in (DES_MODEL_DIR, PRED_DES_DIR, RF_MODEL_DIR, PRED_RF_DIR,
 
 
 # =============================================================================
-# 全域參數
+# Global parameters
 # =============================================================================
 train_start = '2007-08-01'
 train_end   = '2025-12-31'
 test_start  = '2026-01-01'
 
-# 美股 4 個面向 (固定順序，影響 letters)
+# US 4 aspects (fixed order; drives ablation letters)
 FEATURE_ORDER = ['fundamental', 'tech_trend', 'moment', 'macro']
 sub_cats = FEATURE_ORDER.copy()
 
-# 美股交易慣例
+# US market convention
 BUY_FEE         = 0.0
 SELL_FEE        = 0.0
 INITIAL_CAPITAL = 1_000_000.0  # USD
 
-# 預設股價載入起點與回測區間
+# Default price-load start and backtest window
 DEFAULT_PRICE_START = '2021-12-31'
 DEFAULT_DATE_START  = '2024-01-01'
 DEFAULT_DATE_END    = '2026-03-31'
 
-# 信號參數
+# Signal parameters
 span = 1
 long_d = 1
 short_d = 1
@@ -143,7 +143,7 @@ period = ['2019-12-31']
 show_fig = True
 save_fig = True
 
-# Dow 30 公司名稱 (顯示用)
+# Dow 30 company names (display only)
 DOW30_NAME = {
     'AAPL': 'Apple', 'AMGN': 'Amgen', 'AMZN': 'Amazon', 'AXP': 'American Express',
     'BA': 'Boeing', 'CAT': 'Caterpillar', 'CRM': 'Salesforce', 'CSCO': 'Cisco',
@@ -157,13 +157,14 @@ DOW30_NAME = {
 
 
 def compute_letters(used_feats):
-    """依 FEATURE_ORDER 串接使用中特徵的前 2 字母 (例：全選='futemoma'; drop macro='futemo')"""
+    """Concatenate the first 2 letters of each active feature in FEATURE_ORDER order
+    (e.g. all-selected -> 'futemoma'; drop macro -> 'futemo')."""
     ordered = [f for f in FEATURE_ORDER if f in used_feats]
     return ''.join(f[:2] for f in ordered)
 
 
 # =============================================================================
-# 美股股價載入 (yfinance + 快取)
+# US price loader (yfinance + cache)
 # =============================================================================
 _PRICE_CACHE: dict = {}
 
@@ -173,7 +174,7 @@ def get_stock_price(ticker: str) -> pd.DataFrame:
         return _PRICE_CACHE[ticker]
     frames = load_price_frames([ticker])
     if ticker not in frames['Close'].columns:
-        raise RuntimeError(f"{ticker}: 無法從 yfinance 取得股價")
+        raise RuntimeError(f"{ticker}: failed to fetch prices from yfinance")
     out = pd.DataFrame({
         'Open':   frames['Open'][ticker],
         'High':   frames['High'][ticker],
@@ -189,7 +190,7 @@ def get_stock_price(ticker: str) -> pd.DataFrame:
 
 
 # =============================================================================
-# 回測 (per-share, zero-fee, 1M USD)
+# Backtest (per-share, zero-fee, 1M USD)
 # =============================================================================
 def plot_backtest(stock_id, stock_name, y_pred, stock_price,
                   long, short, short_to_long, long_to_short,
@@ -364,14 +365,14 @@ def findBestRF(X_train, y_train):
 
 
 # =============================================================================
-# update_DES: 訓練/載入
+# update_DES: train / load
 # =============================================================================
 def update_DES(tickers, train_end, price_start=DEFAULT_PRICE_START, price_end=None,
                used_feats=None, letters=None, force_retrain=False):
-    """訓練/載入 DES 並輸出預測。
+    """Train / load DES and emit predictions.
 
-    used_feats / letters 任一為 None  → FULL 模式 (重用 DES_update_ATT_US.py 的 cache)。
-    兩者都提供時                       → ABLATION 模式 (寫到 PRED_DIR_ABL_RANGE)。
+    If either used_feats or letters is None    -> FULL mode (reuse DES_update_ATT_US.py cache).
+    If both are provided                       -> ABLATION mode (writes to PRED_DIR_ABL_RANGE).
     """
     is_ablation = (used_feats is not None) and (letters is not None)
     feats = used_feats if is_ablation else sub_cats
@@ -397,7 +398,7 @@ def update_DES(tickers, train_end, price_start=DEFAULT_PRICE_START, price_end=No
             present_feats.append(cat)
 
         if X_all.shape[1] == 0:
-            raise RuntimeError(f"{stock_id}: 無任何 ATT 預測檔可讀取 (experiment/ATT_*_{stock_id})")
+            raise RuntimeError(f"{stock_id}: no ATT prediction files available (experiment/ATT_*_{stock_id})")
 
         X_all.index.name = 'Date'
         X_all.columns = present_feats
@@ -458,7 +459,7 @@ def update_DES(tickers, train_end, price_start=DEFAULT_PRICE_START, price_end=No
 
 
 # =============================================================================
-# 多面板繪圖 (股價 + DES_original/prob/smooth + 各 facet)
+# Multi-panel plot (price + DES_original/prob/smooth + each facet)
 # =============================================================================
 def plot_performance(long, short, short_to_long, long_to_short, threshold,
                      AGG_DES_S, AGG_DES, AGG_DES_P, period, cumSum, stock_name_v,
@@ -501,7 +502,7 @@ def plot_performance(long, short, short_to_long, long_to_short, threshold,
         ax[i + 4].bar(x, vals, color=colors)
         ax[i + 4].set_xticks(x); ax[i + 4].set_xticklabels(ticks); ax[i + 4].set_ylabel(f"{col}")
 
-    # 標記買賣點到 ax[0] 與 ax[3]
+    # Mark buy/sell signals on ax[0] and ax[3]
     buy_sig  = [i for i, xd in enumerate(stock_price.index) if xd in buy_action_DES_S.index]
     sell_sig = [j for j, xd in enumerate(stock_price.index) if xd in sell_action_DES_S.index]
     ymin0, ymax0 = ax[0].get_ylim()
@@ -538,7 +539,7 @@ def re_DES(x):
 
 
 # =============================================================================
-# 單檔執行
+# Single-ticker driver
 # =============================================================================
 def run_one(ticker, date_start=None, date_end=None, used_feats=None, letters=None,
             use_cusum_filter=True, des_threshold=None, force_retrain=False):
@@ -557,7 +558,7 @@ def run_one(ticker, date_start=None, date_end=None, used_feats=None, letters=Non
     if date_start is not None:
         stock_price_v = stock_price_v.loc[date_start:]
     if stock_price_v.empty:
-        raise RuntimeError(f"{ticker}: 指定區間 {date_start}~{date_end} 無股價")
+        raise RuntimeError(f"{ticker}: no prices for the requested window {date_start}~{date_end}")
 
     stock_price = stock_price_v
     stock_id = stock_id_v
@@ -570,13 +571,13 @@ def run_one(ticker, date_start=None, date_end=None, used_feats=None, letters=Non
     AGG_RF = AGG_RF[~AGG_RF.index.duplicated(keep='last')]
     AGG_RF = AGG_RF.ewm(span=span, adjust=False).mean().reindex(stock_price.index).ffill().bfill()
 
-    # CUSUM 方向 filter
+    # CUSUM directional filter
     cumSum = pd.read_csv(CUSUM_DIR_SIGN / f"cusum_{stock_id}.csv",
                          index_col=0, parse_dates=True, header=None)
     cumSum.columns = ['cumSum']
     cumSum = cumSum.loc[period[0]:].reindex(stock_price.index).bfill()
 
-    # CUSUM 機率混合
+    # CUSUM probability blend
     cumSum_prob = pd.read_csv(CUSUM_DIR_PROB / f"cusum_{stock_id}.csv",
                               index_col=0, parse_dates=True, header=None).squeeze("columns")
     cumSum_prob = cumSum_prob.loc[period[0]:].reindex(stock_price.index).ffill()
@@ -609,49 +610,49 @@ def run_one(ticker, date_start=None, date_end=None, used_feats=None, letters=Non
     win_loss_ratio = (avg_win / abs(avg_loss)) if (len(loss) and avg_loss != 0) else np.inf
 
     rng_str = f"{date_start or stock_price.index[0].date()} ~ {date_end or stock_price.index[-1].date()}"
-    print(f"\n=== {stock_id} {stock_name}  區間 {rng_str}  CUSUM={'ON' if use_cusum_filter else 'OFF'}  DES_T={_thr} ===")
-    print('交易次數: ', transaction)
-    print('獲利次數: ', win)
-    print('勝率: {:14.2f}'.format(win_rate))
-    print('總獲利: {:12.2f}'.format(np.sum(profit)))
-    print('平均獲利: {:10.2f}'.format(avg_win))
-    print('總損失:  {:11.2f}'.format(np.sum(loss)))
-    print('平均損失: {:10.2f}'.format(avg_loss))
-    print('盈虧比: {:12.2f}'.format(win_loss_ratio))
+    print(f"\n=== {stock_id} {stock_name}  window {rng_str}  CUSUM={'ON' if use_cusum_filter else 'OFF'}  DES_T={_thr} ===")
+    print('trades:        ', transaction)
+    print('winning trades:', win)
+    print('win rate:      {:14.2f}'.format(win_rate))
+    print('total profit:  {:12.2f}'.format(np.sum(profit)))
+    print('avg win:       {:10.2f}'.format(avg_win))
+    print('total loss:    {:11.2f}'.format(np.sum(loss)))
+    print('avg loss:      {:10.2f}'.format(avg_loss))
+    print('win/loss ratio:{:12.2f}'.format(win_loss_ratio))
 
 
 def _parse_drop(drop_str):
-    """空字串 → FULL 模式 (None, None)，重用 base US cache。
-    指定 drop → ABLATION 模式 (used_feats, letters)。"""
+    """Empty string -> FULL mode (None, None), reuses the base US cache.
+    Non-empty drop -> ABLATION mode (used_feats, letters)."""
     if drop_str is None or str(drop_str).strip() == '':
         return None, None
     drop = [x.strip() for x in str(drop_str).split(',') if x.strip()]
     invalid = [d for d in drop if d not in FEATURE_ORDER]
     if invalid:
-        raise ValueError(f"未知特徵：{invalid}；可選：{FEATURE_ORDER}")
+        raise ValueError(f"unknown feature: {invalid}; choose from {FEATURE_ORDER}")
     if len(drop) >= len(FEATURE_ORDER):
-        raise ValueError(f"不能 drop 全部 {len(FEATURE_ORDER)} 個特徵，至少要保留 1 個")
+        raise ValueError(f"cannot drop all {len(FEATURE_ORDER)} features; at least one must be kept")
     used = [f for f in FEATURE_ORDER if f not in drop]
     return used, compute_letters(used)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='US DES 回測（可指定 ticker、區間與特徵 ablation）')
-    parser.add_argument('--ticker', type=str, default=None, help='美股代號 (例: AAPL)，未指定則進入互動模式')
+    parser = argparse.ArgumentParser(description='US DES backtest (configurable ticker, window, and feature ablation)')
+    parser.add_argument('--ticker', type=str, default=None, help='US ticker (e.g. AAPL); if omitted, enter interactive mode')
     parser.add_argument('--start', type=str, default=DEFAULT_DATE_START,
-                        help=f'回測起始日 YYYY-MM-DD (預設 {DEFAULT_DATE_START})')
+                        help=f'backtest start date YYYY-MM-DD (default {DEFAULT_DATE_START})')
     parser.add_argument('--end', type=str, default=DEFAULT_DATE_END,
-                        help=f'回測結束日 YYYY-MM-DD (預設 {DEFAULT_DATE_END})')
+                        help=f'backtest end date YYYY-MM-DD (default {DEFAULT_DATE_END})')
     parser.add_argument('--drop', type=str, default='',
-                        help=f'要 drop 的特徵，逗號分隔；空白 = 全部使用。可選: {",".join(FEATURE_ORDER)}')
+                        help=f'features to drop, comma-separated; empty = use all. Choices: {",".join(FEATURE_ORDER)}')
     parser.add_argument('--cusum', type=str, default='on', choices=['on', 'off', '1', '2'],
-                        help='是否啟用 CUSUM filter：on/1 = 是 (預設), off/2 = 否')
+                        help='enable CUSUM filter: on/1 = yes (default), off/2 = no')
     parser.add_argument('--threshold', '--des-threshold', dest='threshold',
                         type=float, default=threshold,
-                        help=f'DES 信號門檻 (0.50~0.95，預設 {threshold})')
+                        help=f'DES signal threshold (0.50~0.95, default {threshold})')
     parser.add_argument('--force-retrain', action='store_true',
-                        help='忽略既有 pred/pkl cache，強制重訓 DES/RF 並覆寫')
-    parser.add_argument('--no-show', action='store_true', help='不彈出視窗')
+                        help='ignore existing pred/pkl cache; force retrain DES/RF and overwrite')
+    parser.add_argument('--no-show', action='store_true', help='do not open the plot window')
     args = parser.parse_args()
 
     use_cusum_filter = args.cusum in ('on', '1')
@@ -674,38 +675,38 @@ def main():
                     use_cusum_filter=use_cusum_filter, des_threshold=des_threshold,
                     force_retrain=args.force_retrain)
         except Exception as e:
-            print(f"[ERROR] 處理 {ticker} 時發生錯誤: {e}")
+            print(f"[ERROR] failure while processing {ticker}: {e}")
         finally:
             if show_fig:
                 plt.show()
             plt.close('all')
         return
 
-    # 互動模式
+    # Interactive mode
     while True:
-        ticker = input("Please input US ticker (輸入 0 離開): ").strip().upper()
+        ticker = input("Please input US ticker (0 to quit): ").strip().upper()
         if ticker == '0' or ticker == '':
-            print("結束程式。")
+            print("Exit.")
             break
         try:
-            print(f"可用特徵：{', '.join(FEATURE_ORDER)}")
-            drop_in = input("要 drop 的特徵 (逗號分隔；直接 Enter = 全部使用): ").strip()
+            print(f"Available features: {', '.join(FEATURE_ORDER)}")
+            drop_in = input("Features to drop (comma-separated; Enter = use all): ").strip()
             used_feats, letters = _parse_drop(drop_in)
 
-            start_in = input(f"回測起始日 [預設 {args.start}]: ").strip() or args.start
-            end_in   = input(f"回測結束日 [預設 {args.end}]: ").strip() or args.end
+            start_in = input(f"Start date [{args.start}]: ").strip() or args.start
+            end_in   = input(f"End date [{args.end}]: ").strip() or args.end
 
-            cusum_in = input("啟用 CUSUM filter? (1=是 / 2=否) [1]: ").strip()
+            cusum_in = input("Enable CUSUM filter? (1=yes / 2=no) [1]: ").strip()
             use_cusum_filter_i = True if cusum_in == '' else cusum_in in ('1', 'y', 'Y', 'yes', 'true')
 
-            thr_in = input(f"DES 信號門檻 (0.50~0.95) [{des_threshold}]: ").strip()
+            thr_in = input(f"DES signal threshold (0.50~0.95) [{des_threshold}]: ").strip()
             try:
                 des_threshold_i = float(thr_in) if thr_in else des_threshold
             except ValueError:
-                print(f"[WARN] 無法解析 '{thr_in}'，改用 {des_threshold}")
+                print(f"[WARN] cannot parse '{thr_in}'; using {des_threshold}")
                 des_threshold_i = des_threshold
 
-            retrain_in = input("強制重訓 DES/RF? (1=是 / 2=否) [2]: ").strip()
+            retrain_in = input("Force retrain DES/RF? (1=yes / 2=no) [2]: ").strip()
             force_retrain_i = False if retrain_in == '' else retrain_in in ('1', 'y', 'Y', 'yes', 'true')
 
             _used_display = used_feats if used_feats is not None else FEATURE_ORDER
@@ -719,7 +720,7 @@ def main():
             if show_fig:
                 plt.show()
         except Exception as e:
-            print(f"[ERROR] 處理 {ticker} 時發生錯誤: {e}")
+            print(f"[ERROR] failure while processing {ticker}: {e}")
         finally:
             plt.close('all')
 

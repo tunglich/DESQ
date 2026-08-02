@@ -1,20 +1,24 @@
 """Combined 5-aspect feature loader for ATT+Flood_combined.py / ATT+Dflooding_combined.py.
 
-把 fundamental / trade / moment / tech_trend / macro 五個面向的特徵在「aspect-specific
-expand 之後 / sanitize-corr-scaler 之前」沿 column 軸 inner-join concat，作為單一
-`combined5` aspect 進入後續訓練流程。
+Concatenates the five aspects (fundamental / trade / moment / tech_trend /
+macro) along the column axis with an inner join, after each aspect's own
+expand step but before sanitize-corr-scaler, so the result can be fed to the
+training pipeline as a single `combined5` aspect.
 
-Sentiment 刻意排除，與 run5 5-aspect 比較對齊。
+Sentiment is intentionally excluded to keep the comparison aligned with the
+5-aspect run5 baseline.
 
-對外介面：
+Public interface:
     COMBINED_ASPECT          'combined5'
     SOURCE_ASPECTS           ['fundamental', 'trade', 'moment', 'tech_trend', 'macro']
     load_and_combine_features(stock_id) -> (combined_df, train_start_str)
 
-備註：
-    這裡刻意「複製」`ATT+Dflooding_floodexp.py` 內的 `_expand_*` / `_prepare_trade_features` /
-    `_detect_non_zero_date` 與其常數，避免 import 大型主腳本時觸發 TF 初始化與 main 迴圈。
-    若日後 expand 規則改動，需同步更新此檔。
+Notes:
+    The `_expand_*` / `_prepare_trade_features` / `_detect_non_zero_date` helpers
+    and constants from `ATT+Dflooding_floodexp.py` are duplicated here on
+    purpose so that importing this module does not trigger TF initialization or
+    the main loop of that large script. If the expand rules ever change, this
+    file must be updated in lockstep.
 """
 
 from __future__ import annotations
@@ -28,14 +32,14 @@ import pandas as pd
 
 
 # ----------------------------------------------------------------------
-# 對外常數
+# Public constants
 # ----------------------------------------------------------------------
 
 COMBINED_ASPECT = 'combined5'
 SOURCE_ASPECTS: List[str] = ['fundamental', 'trade', 'moment', 'tech_trend', 'macro']
 
-# 與 ATT+Dflooding_floodexp.py 的 _detect_non_zero_date 同步：對應每個 aspect 的最低
-# 「非零欄位比例」門檻；找最早一個達到門檻的日期作為該 aspect 的 train_start 候選。
+# Kept in sync with `_detect_non_zero_date` in ATT+Dflooding_floodexp.py: minimum
+# fraction of non-zero columns required to accept a date as train_start candidate.
 ASPECT_RATIO_THRESHOLD = {
     'fundamental': 0.0,
     'trade': 0.5,
@@ -46,7 +50,7 @@ ASPECT_RATIO_THRESHOLD = {
 
 
 def platform_path(path_str: str) -> str:
-    """Windows D:/... → Linux/WSL /mnt/d/...；Windows 維持原樣。"""
+    """Windows D:/... -> Linux/WSL /mnt/d/...; Windows paths pass through unchanged."""
     if os.name != 'nt' and len(path_str) >= 2 and path_str[1] == ':':
         drive = path_str[0].lower()
         rest = path_str[2:].replace('\\', '/')
@@ -58,7 +62,8 @@ DATA_ROOT = platform_path(os.getenv('DATA_ROOT', 'D:/Feature_new'))
 
 
 # ----------------------------------------------------------------------
-# 以下為 ATT+Dflooding_floodexp.py 的 expand 函式複製（保持邏輯一致）
+# Below: expand helpers copied verbatim from ATT+Dflooding_floodexp.py
+# (keep logic identical)
 # ----------------------------------------------------------------------
 
 TRADE_HEAVY_TAIL_COLS = (
@@ -289,11 +294,11 @@ EXPAND_DISPATCH = {
 
 
 # ----------------------------------------------------------------------
-# 對外 loader
+# Public loader
 # ----------------------------------------------------------------------
 
 def _aspect_train_start(df: pd.DataFrame, aspect: str) -> pd.Timestamp:
-    """依面向決定 train_start 候選日（與 _floodexp 內邏輯一致）。"""
+    """Pick train_start candidate for a given aspect (matches _floodexp logic)."""
     if aspect == 'fundamental':
         temp = df.iloc[:, :-4]
         nonzero = temp.index[~(temp == 0).all(axis=1)]
@@ -305,16 +310,19 @@ def _aspect_train_start(df: pd.DataFrame, aspect: str) -> pd.Timestamp:
 
 
 def load_and_combine_features(stock_id: str) -> Tuple[pd.DataFrame, str]:
-    """讀取 5 個 aspect 的 CSV，套用各自 expand，沿 axis=1 inner-join concat。
+    """Read each of the 5 aspect CSVs, apply the per-aspect expand, then
+    inner-join and concat along axis=1.
 
-    回傳：
+    Returns:
         (combined_df, train_start_str)
-        combined_df：欄位順序為 [aspect1_feat_1, aspect1_feat_2, ..., aspectN_feat_*, y_10, y_20, y_40, y_60]
-        train_start_str：5 個 aspect 中最晚的 train_start + 1 天，格式 'YYYY-MM-DD'
+        combined_df: columns are
+            [aspect1_feat_1, aspect1_feat_2, ..., aspectN_feat_*, y_10, y_20, y_40, y_60]
+        train_start_str: max train_start across the 5 aspects + 1 day, 'YYYY-MM-DD'.
 
-    保證：
-        - 標籤 y_10/y_20/y_40/y_60 來自第一個 aspect，並 assert 與其他 4 個 aspect 完全一致
-        - 欄位名稱衝突時，後者加上 `_{aspect}` 後綴
+    Guarantees:
+        - Labels y_10/y_20/y_40/y_60 come from the first aspect and are asserted
+          to match the other 4 aspects.
+        - Column-name collisions get a `_{aspect}` suffix on the later occurrence.
     """
     aspect_frames = {}
     aspect_starts = {}
@@ -328,7 +336,7 @@ def load_and_combine_features(stock_id: str) -> Tuple[pd.DataFrame, str]:
         expander = EXPAND_DISPATCH[aspect]
         df = expander(df)
 
-        # 確認最後 4 欄為 y_10/y_20/y_40/y_60（順序需與其他 aspect 對得上）
+        # Verify the last 4 columns are y_10/y_20/y_40/y_60 (order must line up across aspects)
         if df.shape[1] < 5:
             raise ValueError(f'[combined_features] {aspect}: too few columns after expand ({df.shape[1]})')
         label_cols = df.columns[-4:].tolist()
@@ -341,7 +349,7 @@ def load_and_combine_features(stock_id: str) -> Tuple[pd.DataFrame, str]:
         aspect_frames[aspect] = df
         aspect_starts[aspect] = _aspect_train_start(df, aspect)
 
-    # 取共同日期（inner join）
+    # Compute common date index (inner join)
     common_index = None
     for aspect, df in aspect_frames.items():
         idx = df.index
@@ -350,8 +358,10 @@ def load_and_combine_features(stock_id: str) -> Tuple[pd.DataFrame, str]:
         raise ValueError('[combined_features] no overlapping dates across aspects')
     common_index = common_index.sort_values()
 
-    # 取第一個 aspect (fundamental) 的標籤作為基準；其他 aspect 若不一致只警告
-    # （常見原因：trade 在無資料早期將 label 補 0；slice 到 train_start 後就只剩 fundamental 標籤）
+    # Use labels from the first aspect (fundamental) as the reference; warn if
+    # any other aspect disagrees (common cause: trade fills labels with 0 in the
+    # early period with no data; once sliced to train_start only the fundamental
+    # labels remain).
     first_aspect = SOURCE_ASPECTS[0]
     base_labels = aspect_frames[first_aspect].loc[common_index].iloc[:, -4:]
     for aspect in SOURCE_ASPECTS[1:]:
@@ -364,12 +374,12 @@ def load_and_combine_features(stock_id: str) -> Tuple[pd.DataFrame, str]:
                 f'{n_diff} rows differ (will use {first_aspect} labels)'
             )
 
-    # 取每個 aspect 的特徵欄位（去掉最後 4 欄標籤），沿 axis=1 concat
+    # Take feature columns from each aspect (drop the 4 label columns) and concat along axis=1
     feature_blocks = []
     seen_cols: set = set()
     for aspect in SOURCE_ASPECTS:
         block = aspect_frames[aspect].loc[common_index].iloc[:, :-4].copy()
-        # 欄位名衝突時加 `_{aspect}` 後綴
+        # Append `_{aspect}` suffix on column-name collisions
         rename_map = {}
         for col in block.columns:
             new_name = col
@@ -382,7 +392,7 @@ def load_and_combine_features(stock_id: str) -> Tuple[pd.DataFrame, str]:
 
     combined = pd.concat(feature_blocks + [base_labels], axis=1)
 
-    # train_start: 取所有 aspect 中最晚的，並 +1 天（與 _floodexp 行為一致）
+    # train_start: max across aspects, then +1 day (matches _floodexp behaviour)
     latest_start = max(aspect_starts.values())
     train_start_str = (latest_start.to_pydatetime().date() + timedelta(days=1)).strftime('%Y-%m-%d')
 
@@ -403,7 +413,7 @@ def load_and_combine_features(stock_id: str) -> Tuple[pd.DataFrame, str]:
 
 
 if __name__ == '__main__':
-    # 簡易自測
+    # Simple self-test
     stock = os.getenv('STOCK_IDS', '2330').split(',')[0].strip()
     df, ts = load_and_combine_features(stock)
     print(f'[selftest] shape={df.shape} train_start={ts}')

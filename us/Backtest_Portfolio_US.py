@@ -1,20 +1,22 @@
 # =============================================================================
 # Backtest_Portfolio_US.py
-# 功能：美股 portfolio 回測。
-#   1. 使用者指定 universe (dow30/sp100/sox30 關鍵字、a,b 逗號清單、或 @file.txt)
-#   2. 指定加權方式 (price-weighted / market-weighted)
-#   3. 期初依權重將總資本 (default 100M USD) 分配到各成份股
-#   4. 各檔依自己已訓好的 DES 預測 (model_pred_DES_US/DES_pred_<t>_2019-12-31.csv)
-#      + CUSUM 方向 filter (cumSum_prob_12/cusum_<t>.csv) 自主進出場
-#   5. 將各檔每日 asset 加總 -> portfolio equity，對 benchmark 畫 cumulative return
+# Purpose: US equity portfolio experiment.
+#   1. User picks universe (dow30/sp100/sox30 keyword, a,b comma list, or @file.txt)
+#   2. Weighting scheme (price-weighted / market-weighted)
+#   3. Total capital (default 100M USD) is allocated to constituents by weight at start
+#   4. Each ticker enters/exits from its trained DES prediction
+#      (model_pred_DES_US/DES_pred_<t>_2019-12-31.csv) plus a CUSUM directional
+#      filter (cumSum_prob_12/cusum_<t>.csv)
+#   5. Per-ticker daily asset values are summed into portfolio equity, plotted
+#      against the benchmark as cumulative return
 #
-# 互動 prompt 風格對齊 DES_update_ATT_US.py，輸入 0 離開。
-# 同時支援 env-driven 非互動 batch：BT_UNIVERSE / BT_WEIGHT / BT_START / BT_END /
-# BT_CAPITAL / BT_BENCHMARK / BT_CUSUM / BT_TOTAL_RETURN / BT_THRESHOLD；
-# 若 BT_UNIVERSE 已設則自動跑一次後離開。
-# Plot/show 行為與 DES 一致：MPLBACKEND / SHOW_FIG / SAVE_FIG。
+# Interactive prompt style aligns with DES_update_ATT_US.py; enter 0 to quit.
+# Supports env-driven non-interactive batch mode: BT_UNIVERSE / BT_WEIGHT /
+# BT_START / BT_END / BT_CAPITAL / BT_BENCHMARK / BT_CUSUM / BT_TOTAL_RETURN /
+# BT_THRESHOLD. If BT_UNIVERSE is set, runs once and exits.
+# Plot/show behaviour matches DES: MPLBACKEND / SHOW_FIG / SAVE_FIG.
 #
-# 輸出 (backtest_portfolio_US/，平鋪、檔名含參數)：
+# Outputs (backtest_portfolio_US/, flat layout, params encoded in filename):
 #   - equity_<universe>_<weight>_<start>_<end>.csv
 #   - summary_<universe>_<weight>_<start>_<end>.csv
 #   - cum_return_<universe>_<weight>_<start>_<end>.png
@@ -59,12 +61,12 @@ CUSUM_SIGN_DIR = _THIS_DIR / "cumSum_prob_12"
 RAW_DIR = _THIS_DIR / "feature" / "_raw"
 OUT_DIR = _THIS_DIR / "backtest_portfolio_US"
 
-DEFAULT_TRAIN_END = "2019-12-31"  # 對應 DES_pred_*_2019-12-31.csv
+DEFAULT_TRAIN_END = "2019-12-31"  # matches DES_pred_*_2019-12-31.csv
 DEFAULT_START = "2024-01-01"
 DEFAULT_END = "2026-03-31"
 DEFAULT_CAPITAL = 100_000_000.0  # 100M USD
 DEFAULT_THRESHOLD = 0.50
-ANN_FACTOR = 252  # 年化交易日數
+ANN_FACTOR = 252  # annualization factor (trading days)
 BUY_FEE = 0.001    # 0.1 % (round-trip fee — buy side)
 SELL_FEE = 0.0034  # 0.34 % (round-trip fee — sell side)
 
@@ -682,11 +684,11 @@ def main() -> None:
     while True:
         try:
             uspec = _env_or(
-                "Universe (dow30 / sp100 / sox30 / a,b / @file，輸入 0 離開) [dow30]: ",
+                "Universe (dow30 / sp100 / sox30 / a,b / @file, 0 to quit) [dow30]: ",
                 "dow30", "BT_UNIVERSE",
             ).strip()
             if uspec == "0":
-                print("結束程式。")
+                print("Exit.")
                 break
 
             w_in = _env_or("Weight (1=price, 2=market) [1]: ", "1", "BT_WEIGHT").strip()
@@ -709,11 +711,11 @@ def main() -> None:
             ).strip()
             benchmark = bench_in or None
 
-            cusum_in = _env_or("CUSUM filter? (1=是 / 2=否) [1]: ", "1", "BT_CUSUM").strip()
+            cusum_in = _env_or("CUSUM filter? (1=yes / 2=no) [1]: ", "1", "BT_CUSUM").strip()
             use_cusum = cusum_in not in ("2", "n", "N", "no", "false")
 
             tr_in = _env_or(
-                "Total return (含股利再投資現金)? (1=是 / 2=否) [2]: ",
+                "Total return (reinvest cash dividends)? (1=yes / 2=no) [2]: ",
                 "2", "BT_TOTAL_RETURN",
             ).strip()
             total_return = tr_in in ("1", "y", "Y", "yes", "true")
@@ -739,7 +741,7 @@ def main() -> None:
                 total_return=total_return,
             )
         except KeyboardInterrupt:
-            print("\n中斷。")
+            print("\nInterrupted.")
             break
         except Exception as e:
             print(f"[ERROR] {e}")
