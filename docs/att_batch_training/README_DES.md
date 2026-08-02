@@ -1,143 +1,145 @@
-# DES_update_ATT-sentiment.py 執行指南
+# `DES_update_ATT-sentiment.py` — usage guide
 
-## 概述
+## Overview
 
-此程式使用 **Dynamic Ensemble Selection (DES)** 方法，結合 6 個面向的 ATT 模型預測結果與 CUSUM 統計量，產生股票買賣信號並進行回測與績效繪圖。
+This script uses **Dynamic Ensemble Selection (DES)** to combine the
+predictions of six per-aspect ATT models with CUSUM statistics, produce
+buy/sell signals, and then backtest and plot the performance.
 
-### 流程
+### Flow
 
 ```
-ATT 模型預測 → 合併 6 面向特徵 → RF 調參 → KNORAE 集成 → CUSUM 過濾 → 回測交易 → 績效報告
+ATT model predictions → combine 6 aspects → RF tuning → KNORAE ensemble
+                     → CUSUM filter → backtest trades → performance report
 ```
 
 ---
 
-## 環境需求
+## Environment
 
-| 項目 | 版本 |
-|------|------|
-| Python | 3.11.x |
-| Conda env | `finlab` |
-| TensorFlow | 2.21.0 |
-| scikit-learn | 1.7.x |
-| DESlib | 0.3.7 |
-| pandas | 3.0.x |
-| matplotlib | (TkAgg 後端) |
-| joblib | 1.5.x |
+| Item | Version |
+| --- | --- |
+| Python | 3.10+ |
+| tensorflow | 2.20.0-dev (self-built, sm_120) |
+| deslib | latest |
+| scikit-learn | latest |
+| matplotlib | (TkAgg backend) |
+| pandas / numpy | latest |
 
-### 安裝依賴
+### Install dependencies
 
 ```bash
-conda activate finlab
-pip install pandas numpy scikit-learn deslib matplotlib joblib
+python -m venv ~/venvs/finlab
+source ~/venvs/finlab/bin/activate
+pip install -r requirements.txt
 ```
 
 ---
 
-## 前置資料準備
+## Prerequisite data
 
-執行前須確認以下資料已存在於 `D:/` 磁碟：
+The following inputs must exist under `D:/` before you run the script:
 
-| 路徑 | 說明 | 來源 |
-|------|------|------|
-| `D:/experiments_df_test/ATT_{aspect}_{stock_id}/experiment_result_*.csv` | 各面向 ATT 模型預測結果 | `ATT+Dflooding.py` 訓練產出 |
-| `D:/Feature_new/fundamental_{stock_id}.csv` | 基本面特徵（含 y_20 標籤） | `Feature_Cmoney_update.py` |
-| `D:/CmoneyFactor/Open.csv`, `Close.csv`, `High.csv`, `Low.csv`, `Volume.csv` | CMoney 股價資料 | `Feature_Cmoney_update.py` |
-| `D:/CmoneyFactor/Stock_name.csv` | 股票名稱對照表 | CMoney |
-| `./cumSum/cusum_{stock_id}.csv` | CUSUM 統計量 | `CUMSUM_feature_finlab.py` |
-| `./cumSum_prob_6/cumsum_prob_{stock_id}.csv` | CUSUM 機率序列 | `CUSUM_prob_multi_finlab.py` |
+| Path | Description | Source |
+| --- | --- | --- |
+| `D:/experiments_df_test/ATT_{aspect}_{stock_id}/experiment_result_*.csv` | Per-aspect ATT model predictions | Produced by `ATT+Dflooding.py` |
+| `D:/Feature_new/fundamental_{stock_id}.csv` | Fundamental features (includes the `y_20` label) | `Feature_Cmoney_update.py` |
+| `D:/CmoneyFactor/Open.csv`, `Close.csv`, `High.csv`, `Low.csv`, `Volume.csv` | CMoney OHLCV | `Feature_Cmoney_update.py` |
+| `D:/CmoneyFactor/Stock_name.csv` | Stock name lookup | CMoney |
+| `./cumSum/cusum_{stock_id}.csv` | CUSUM statistics | `CUMSUM_feature_finlab.py` |
+| `./cumSum_prob_6/cumsum_prob_{stock_id}.csv` | CUSUM probability series | `CUSUM_prob_multi_finlab.py` |
 
-### 輸出資料
+### Outputs
 
-| 路徑 | 說明 |
-|------|------|
-| `D:/DES_model_test/DES_{stock_id}_{period}.pkl` | 訓練好的 DES 模型 |
-| `D:/RF_model_test/RF_{stock_id}_{period}.pkl` | 訓練好的 RF 基礎分類器 |
-| `D:/model_pred_DES_test/DES_pred_{stock_id}_{period}.csv` | DES 預測結果 |
-| `D:/model_pred_RF_test/RF_pred_{stock_id}_{period}.csv` | RF 預測結果 |
-| `D:/model_output/ensemble_{stock_id}.png` | 信號綜覽圖（10 子圖） |
-| `./evaluation/backtest_{stock_id}_L1S1.png` | 回測績效圖 |
-
----
-
-## 執行方式
-
-> **單一標的預估時間**：DES 集成（RF 調參 + KNORAE + CUSUM 過濾 + 回測）約 **5 分鐘**（RTX 5090 / 5080 差不多）。前置的 ATT 兩階段訓練另計：Phase 1 超參數搜尋 ≈ 3 小時、Phase 2 Dflooding ≈ 2 小時（見 `README_Batch_training.md`）。
-
-### 互動模式（預設）
-
-程式啟動後會透過 `input()` 要求輸入股票代號：
-
-```bash
-conda activate finlab
-cd c:\Users\tungl\finlab\workspace_vscoding
-python DES_update_ATT-sentiment.py
-
-cd /mnt/c/Users/tungl/finlab/workspace_vscoding
-python DES_update_ATT-sentiment.py
-```
-
-```
-Please input stock_id: 2330
-```
-
-### 注意事項
-
-1. **需要在有圖形介面的環境執行**，程式使用 `matplotlib TkAgg` 後端彈出視窗顯示圖形
-2. **WSL 使用者**需設定 X11 forwarding 或使用 `show_fig = False`（修改程式第 476 行）
-3. 若模型和預測結果已存在（`.pkl` / `.csv` 檔），程式會直接載入不重新訓練
+| Path | Description |
+| --- | --- |
+| `D:/DES_model_test/DES_{stock_id}_{period}.pkl` | Trained DES model |
+| `D:/RF_model_test/RF_{stock_id}_{period}.pkl` | Trained RF base classifier |
+| `D:/model_pred_DES_test/DES_pred_{stock_id}_{period}.csv` | DES predictions |
+| `D:/model_pred_RF_test/RF_pred_{stock_id}_{period}.csv` | RF predictions |
+| `D:/model_output/ensemble_{stock_id}.png` | Signal overview (10 subplots) |
+| `./evaluation/backtest_{stock_id}_L1S1.png` | Backtest performance chart |
 
 ---
 
-## 全域參數
+## Running the script
 
-程式中可調整的關鍵參數（位於主程式區塊）：
+> **Estimated wall time per ticker**: the DES ensemble (RF tuning +
+> KNORAE + CUSUM filter + backtest) takes about **5 minutes** (RTX 5090
+> and 5080 are comparable). This does **not** include the two upstream
+> ATT training phases: Phase 1 hyperparameter search ≈ 3 h and Phase 2
+> Dflooding ≈ 2 h; see `README_Batch_training.md`.
 
-| 參數 | 預設值 | 說明 |
-|------|--------|------|
-| `train_start` | `'2007-08-01'` | 訓練資料起始日期 |
-| `train_end` | `'2024-06-30'` | 訓練資料結束日期 |
-| `test_start` | `'2024-07-01'` | 測試資料起始日期 |
-| `period` | `['2019-12-31']` | 模型訓練時間節點（可加入多個做滾動更新） |
-| `long` | `1` | 買入信號需連續看多天數 |
-| `short` | `1` | 賣出信號需連續看空天數 |
-| `threshold` | `0.50` | 機率 > threshold 視為看多 |
-| `span` | `1` | EWM 平滑跨度（1 = 不平滑） |
-| `show_fig` | `True` | 是否彈出圖形視窗 |
-| `save_fig` | `True` | 是否存檔圖形 |
+### Interactive mode (default)
+
+At launch the script uses `input()` to ask for a stock ID:
+
+```text
+Enter stock id: 2330
+```
+
+### Notes
+
+1. **Must run in an environment with a display**: the script uses the
+   `matplotlib` TkAgg backend and pops up windows.
+2. **WSL users** need to configure X11 forwarding, or set
+   `show_fig = False` (modify line 476).
+3. If the model and prediction files already exist (`.pkl` / `.csv`),
+   the script loads them directly and skips retraining.
 
 ---
 
-## 完整 Pipeline 執行順序
+## Global parameters
 
-本程式是最後一步（集成 + 回測），完整流程如下：
+Key parameters you can tune (in the main block):
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `train_start` | `'2007-08-01'` | Training window start date |
+| `train_end` | `'2024-06-30'` | Training window end date |
+| `test_start` | `'2024-07-01'` | Test window start date |
+| `period` | `['2019-12-31']` | Model retraining timestamps (multiple values → rolling updates) |
+| `long` | `1` | Number of consecutive bullish days required for a buy signal |
+| `short` | `1` | Number of consecutive bearish days required for a sell signal |
+| `threshold` | `0.50` | Probability > threshold → bullish |
+| `span` | `1` | EWM smoothing span (1 = no smoothing) |
+| `show_fig` | `True` | Pop up figure windows |
+| `save_fig` | `True` | Save figures to disk |
+
+---
+
+## Full pipeline order
+
+This script is the last step (ensemble + backtest). The full pipeline:
 
 ```
-1. Feature_Cmoney_update.py        → 更新 CMoney 股價/特徵資料
-2. CUMSUM_feature_finlab.py         → 計算 CUSUM 統計量
-3. CUSUM_prob_multi_finlab.py       → 計算 CUSUM 機率序列
-4. ATT+Dflooding.py                 → 訓練 ATT 模型（AutoML + Flooding）
-5. prediction_ATT_update.py         → 批次更新 ATT 模型預測結果
-6. DES_update_ATT-sentiment.py      → DES 集成 + CUSUM 過濾 + 回測 ← 本程式
+1. Feature_Cmoney_update.py        → refresh CMoney OHLCV / features
+2. CUMSUM_feature_finlab.py         → compute CUSUM statistics
+3. CUSUM_prob_multi_finlab.py       → compute CUSUM probability series
+4. ATT+Dflooding.py                 → train ATT models (AutoML + Flooding)
+5. prediction_ATT_update.py         → batch-update ATT model predictions
+6. DES_update_ATT-sentiment.py      → DES ensemble + CUSUM filter + backtest ← this script
 ```
 
 ---
 
-## 輸出範例
+## Example output
 
-執行完成後會輸出績效報告：
+After completion the script prints a performance report:
 
+```text
+trades:         12
+winning trades: 8
+win rate:       0.67
+gross profit:   15234567.89
+avg profit:     1904320.99
+gross loss:     -3456789.12
+avg loss:       -864197.28
+profit factor:  2.20
 ```
-交易次數:  12
-獲利次數:  8
-勝率:           0.67
-總獲利:  15234567.89
-平均獲利: 1904320.99
-總損失:  -3456789.12
-平均損失: -864197.28
-盈虧比:         2.20
-```
 
-同時產生：
-- **信號綜覽圖**（10 子圖）：股價、DES 原始/平滑/混合信號、6 面向個別信號
-- **回測績效圖**：模型累積報酬 vs 股票 Buy & Hold，標註買賣點與模型更新點
+It also produces:
+- **Signal overview chart** (10 subplots): price, DES raw / smoothed /
+  blended signals, and per-aspect signals for the six aspects.
+- **Backtest performance chart**: model cumulative return vs
+  buy-and-hold, with buy/sell markers and model-update points annotated.

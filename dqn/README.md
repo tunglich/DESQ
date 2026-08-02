@@ -83,8 +83,8 @@ pip install -r requirements.txt
 
 ```powershell
 # Windows — note: torch DLLs can be blocked by Windows Application Control
-# Policy. If `import torch` fails with "應用程式控制原則已封鎖此檔案",
-# run the DQN pipeline from WSL instead.
+# Policy. If `import torch` fails with a Windows AppLocker "blocked by
+# Application Control Policy" error, run the DQN pipeline from WSL instead.
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -226,7 +226,7 @@ stacks them with `<DES>` along the channel axis before the CNN.
 
 | Symptom                                                              | Fix                                                                                                              |
 | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `ImportError: DLL load failed while importing _C: 應用程式控制原則`  | Windows AppLocker blocks the torch DLL. Run the DQN pipeline from WSL (`finlab_PyT` env).                        |
+| `ImportError: DLL load failed while importing _C: blocked by Application Control Policy`  | Windows AppLocker blocks the torch DLL. Run the DQN pipeline from WSL (`finlab_PyT` env).                        |
 | `FileNotFoundError: .../artifacts/des/pred/DES_<sym>.csv`            | Run the DESQ pipeline for that stock first (see "Prerequisites").                                                |
 | `FileNotFoundError: .../prices/<sym>.csv`                            | `cd ..; python fetch_prices.py --stock-ids <sym>`.                                                               |
 | `backtest.py [skip] <sym>: no model at .../trained_models/<sym>_all.data` | Copy the best fold's checkpoint from `saves/<sym>_all/fold_k/best_val-*.data` into `trained_models/<sym>_all.data`. |

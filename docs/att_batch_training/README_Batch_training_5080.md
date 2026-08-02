@@ -1,72 +1,81 @@
-# Batch_training Agent
+# Batch_training Agent (RTX 5080 profile)
 
-自動化批次訓練代理，負責依序對多檔標的執行 ATT+Flood（AutoML 搜參）與 ATT+Dflooding（固定參數重複訓練），並具備 **即時 epoch 監控**與 **WSL 自動重啟** 能力。
+An automated batch-training agent that runs ATT+Flood (AutoML
+hyperparameter search) followed by ATT+Dflooding (fixed-parameter
+repeated training) over a list of tickers, with **live per-epoch
+monitoring** and **automatic WSL restart** on GPU hangs. This profile is
+tuned for RTX 5080.
 
 ---
 
-## 架構
+## Architecture
 
 ```
 Windows                           WSL (Ubuntu / finlab env)
-┌──────────────────┐              ┌──────────────────────────┐
+┌──────────────────┐              ┌────────────────────────┐
 │ Batch_training   │─── wsl ────▶│ Batch_training.sh        │
 │ .bat             │              │  ├─ ATT+Flood.py   (P1)  │
 │                  │◀── exit 42 ──│  ├─ ATT+Dflooding.py(P2) │
 │ wsl --terminate  │              │  └─ monitor_log()        │
-│ wait 10s         │              └──────────────────────────┘
+│ wait 10s         │              └────────────────────────┘
 │ re-launch ───────│─── wsl ────▶ (resume from state file)
 └──────────────────┘
 ```
 
-**為何分兩層？**  
-`wsl --terminate` 會終止整個 WSL instance，包含監控腳本本身。因此外層 `.bat` 在 Windows 端負責偵測 exit code 42、重啟 WSL 並重新呼叫 `.sh`。
+**Why two layers?**
+`wsl --terminate` kills the whole WSL instance, including the monitor
+script itself. The outer `.bat` therefore lives on the Windows side and
+is responsible for detecting exit code 42, restarting WSL, and
+re-invoking `.sh`.
 
 ---
 
-## 快速開始
+## Quick start
 
-### 1. 在 Windows CMD / PowerShell 執行
+### 1. Run from Windows CMD / PowerShell
 
 ```bat
 Batch_training.bat 3293
 ```
 
-多檔標的：
+Multiple tickers:
 
 ```bat
 Batch_training.bat 3293,2330,2317
 ```
 
-指定 epoch 逾時秒數（預設 10 秒）：
+Set the per-epoch timeout in seconds (default 10 s):
 
 ```bat
 Batch_training.bat 3293 --epoch-timeout 15
 ```
 
-僅訓練特定因子：
+Train only specific factors:
 
 ```bat
 Batch_training.bat 3293 --model-types fundamental,trade,moment
 ```
 
-選擇 validation 方式（預設 walk-forward rolling）：
+Choose validation strategy (default: walk-forward rolling):
 
 ```bat
-Batch_training.bat 3293 --validation rolling --wf-splits 5
-Batch_training.bat 3293 --validation expanding
-Batch_training.bat 3293 --validation traditional
+Batch_training.bat 3293 --validation walk_forward_rolling
+Batch_training.bat 3293 --validation walk_forward_expanding
+Batch_training.bat 3293 --validation blocking
 ```
 
-不帶 `--validation` 且未設 env 時，WSL 端會互動提示（`1`/`2`/`3`，10 秒超時預設 3）。詳見 [SKILL.md](SKILL.md#6-validation-策略)。
+Without `--validation` and with no env override, the WSL side prompts
+interactively (`1`/`2`/`3`, 10-second timeout, default 3). See
+[SKILL.md](SKILL.md#6-validation-strategy).
 
-### 2. 直接在 WSL 內執行（不需要自動 WSL 重啟）
+### 2. Run directly inside WSL (no auto-restart layer)
 
 ```bash
 bash Batch_training.sh 3293
 bash Batch_training.sh 3293,2330 --epoch-timeout 12
 ```
 
-### 3. 清除狀態檔重新開始
+### 3. Reset the state file and start over
 
 ```bat
 Batch_training.bat --reset
@@ -74,108 +83,142 @@ Batch_training.bat --reset
 
 ---
 
-## 執行流程
+## Execution flow
 
-> **重要**：每次呼叫 agent 都會**連續跑完 Phase 1 → Phase 2**，不需要人工介入。Phase 1 AutoML 全部結束後，Phase 2 Dynamic Flooding 會自動接著執行（由 `Batch_training.sh` / `run_att_agent.sh` 的 `main()` 迴圈保證）。兩階段都會記錄在 `.batch_training_state` 的 `completed` 列表，WSL 若中途重啟也會從中斷點繼續。
+> **Important**: every agent invocation runs **Phase 1 → Phase 2 back
+> to back** with no human intervention. Once Phase 1 AutoML finishes,
+> Phase 2 Dynamic Flooding starts automatically (guaranteed by the
+> `main()` loop in `Batch_training.sh` / `run_att_agent.sh`). Both
+> phases are recorded in the `completed` list of
+> `.batch_training_state`, and a WSL restart mid-run resumes from the
+> interruption point.
 
-> **單一標的預估時間（RTX 5090 / 5080 實測，兩者差不多）**  
-> Phase 1 超參數搜尋 ≈ 3 小時，Phase 2 Dflooding 正式訓練 ≈ 2 小時，後續 DES 集成 ≈ 5 分鐘。  
-> 一支股票 6 個面向全跑完約 5 小時（不含 DES）。
+> **Estimated wall time per ticker (measured on RTX 5090 / 5080,
+> comparable)**
+> Phase 1 hyperparameter search ≈ 3 h, Phase 2 Dflooding training ≈ 2 h,
+> and the downstream DES ensemble ≈ 5 min. A single stock across all 6
+> factors takes about 5 h (DES not included).
 
-1. **Phase 1 — AutoML（ATT+Flood.py）**  
-   對每個 `(stock_id, model_type)` 組合執行 Bayesian Optimization 超參數搜尋（stage1: 12 trials / 80 epochs → stage2: 24 trials / 120 epochs）。產出寫入 `D:/hyperbayes_ATT/ATT_{model_type}_{stock_id}/best_trial_summary.json`。
+1. **Phase 1 — AutoML (`ATT+Flood.py`)**
+   For each `(stock_id, model_type)` pair, run Bayesian hyperparameter
+   optimization (stage1: 12 trials / 80 epochs → stage2: 24 trials /
+   120 epochs). Output is written to
+   `D:/hyperbayes_ATT/ATT_{model_type}_{stock_id}/best_trial_summary.json`.
 
-2. **Phase 2 — Dynamic Flooding（ATT+Dflooding.py）**  
-   讀取 Phase 1 產出的最佳超參數，以固定設定重複訓練 18 次，保留 top 3 模型寫入 `D:/experiments_ATT/`。兩個 phase 都透過同一個 `STOCK_IDS` 環境變數接收 stock 清單（勿改為其它名稱，見 SKILL.md §7）。
+2. **Phase 2 — Dynamic Flooding (`ATT+Dflooding.py`)**
+   Load the best hyperparameters produced by Phase 1 and repeat training
+   18 times with fixed settings, keeping the top-3 models under
+   `D:/experiments_ATT/`. Both phases receive the stock list through
+   the same `STOCK_IDS` env var (do not rename it; see SKILL.md §7).
 
-3. **Epoch 監控**  
-   後台 `tail -f` log 檔，即時解析每個 epoch 耗時。若連續 2 個 epoch 超過閾值（預設 10 秒），判斷 GPU 進入異常狀態：
-   - 終止當前訓練 process
-   - 以 exit code 42 退出 WSL
-   - Windows 端 `.bat` 偵測到 42 → `wsl --terminate` → 等待 10 秒 → 重新啟動
+3. **Per-epoch monitoring**
+   A background `tail -f` on the log parses each epoch's wall time. If
+   two consecutive epochs exceed the threshold (default 10 s), the GPU
+   is considered stuck:
+   - kill the current training process,
+   - exit WSL with code 42,
+   - the Windows `.bat` sees exit code 42, runs `wsl --terminate`, waits
+     10 s, and re-launches.
 
-4. **斷點恢復**  
-   透過 `.batch_training_state` 狀態檔記錄已完成的 `(phase, stock, model)` 組合。WSL 重啟後自動跳過已完成項目，從中斷點繼續，直到 Phase 2 最後一個 job 完成才會把 state file 清除。
+4. **Resume from checkpoint**
+   The `.batch_training_state` file records which `(phase, stock,
+   model)` combinations have completed. After a WSL restart, completed
+   items are skipped and training resumes from the interruption point.
+   The state file is only cleared once the very last Phase 2 job
+   finishes.
 
 ---
 
-## 參數一覽
+## Argument reference
 
-| 參數 | 預設值 | 說明 |
+| Argument | Default | Description |
 |------|--------|------|
-| `<stock_ids>` | *(必填)* | 逗號分隔的股票代號，如 `3293,2330` |
-| `--model-types` | `fundamental,trade,moment,sentiment,tech_trend,macro` | 逗號分隔的因子類型 |
-| `--epoch-timeout` | `10` | 單一 epoch 逾時秒數 |
-| `--validation` | `rolling` | `1`/`traditional`、`2`/`expanding`、`3`/`rolling`（walk-forward） |
-| `--wf-splits` | `5` | walk-forward fold 數 |
-| `--wf-val-ratio` | `0.2` | 每 fold 驗證集比例 |
-| `--wf-gap` | `10` | train/val gap（防 leakage） |
-| `--reset` | — | 清除狀態檔，重新開始 |
+| `<stock_ids>` | *(required)* | Comma-separated stock IDs, e.g. `3293,2330` |
+| `--model-types` | `fundamental,trade,moment,sentiment,tech_trend,macro` | Comma-separated factor types |
+| `--epoch-timeout` | `10` | Per-epoch timeout in seconds |
+| `--validation` | *(interactive prompt)* | `blocking` / `walk_forward_expanding` / `walk_forward_rolling` |
+| `--wf-splits` | `5` | Number of walk-forward folds |
+| `--wf-val-ratio` | `0.2` | Per-fold validation ratio |
+| `--wf-gap` | `10` | Train/val gap (guards against leakage) |
+| `--reset` | — | Clear the state file and start over |
 
 ---
 
-## 環境變數
+## Environment variables
 
-Agent 內部會自動設定以下環境變數（可透過外部 `export` 覆蓋）：
+The agent sets the following environment variables internally (each can
+be overridden by an outer `export`):
 
-| 環境變數 | 預設值 | 說明 |
+| Env var | Default | Description |
 |----------|--------|------|
-| `TF_GPU_ALLOCATOR` | `cuda_malloc_async` | TF GPU 記憶體分配器 |
-| `GPU_MEMORY_LIMIT_MB` | `12288` | GPU 記憶體上限 (MB)，0=不限制 |
-| `ENABLE_TF32` | `1` | 啟用 TF32 加速 |
-| `ENABLE_MIXED_PRECISION` | `0` | 混合精度（RTX 5080 WSL 下建議關閉以穩定） |
-| `ENABLE_XLA` | `0` | XLA 編譯（建議關閉避免首 epoch 過慢） |
-| `TRAIN_MODE` | `speed` | 訓練模式 |
-| `ISOLATE_STOCK_MODEL_RUNS` | `0` | Agent 控制外層迴圈，不需腳本內 subprocess |
-| `FIT_VERBOSE` | `2` | 強制 one-line-per-epoch 格式，便於 epoch 時間解析 |
-| `FEATURE_PREPROCESS` | `0` | 預設關閉特徵前處理 (pass-through)，避免批次被互動 prompt 卡住；若要開啟設 `1` |
-| `VALIDATION_MODE` | `walk_forward_rolling` | `blocking` / `walk_forward_expanding` / `walk_forward_rolling`（agent 覆蓋 python 預設） |
-| `WF_N_SPLITS` | `5` | walk-forward fold 數 |
-| `WF_VAL_RATIO` | `0.2` | 每 fold 驗證集比例 |
-| `WF_GAP` | `10` | train/val gap |
-| `VENV_ACTIVATE` | `$HOME/venvs/finlab/bin/activate` | Python venv 啟用腳本路徑（優先） |
-| `CONDA_ENV_NAME` | `finlab` | conda 環境名稱（venv 不存在時才用） |
-| `CONDA_SH_PATH` | `$HOME/miniconda3/etc/profile.d/conda.sh` | conda init 腳本（fallback） |
+| `TF_GPU_ALLOCATOR` | `cuda_malloc_async` | TF GPU memory allocator |
+| `GPU_MEMORY_LIMIT_MB` | `12288` | GPU memory cap (MB); 0 = unlimited |
+| `ENABLE_TF32` | `1` | Enable TF32 acceleration |
+| `ENABLE_MIXED_PRECISION` | `0` | Mixed precision (recommended off under RTX 5080 + WSL for stability) |
+| `ENABLE_XLA` | `0` | XLA compilation (recommended off to avoid slow first epoch) |
+| `TRAIN_MODE` | `speed` | Training mode |
+| `ISOLATE_STOCK_MODEL_RUNS` | `0` | The agent controls the outer loop; no in-script subprocess isolation needed |
+| `FIT_VERBOSE` | `2` | Force one-line-per-epoch formatting so epoch times are easy to parse |
+| `FEATURE_PREPROCESS` | `0` | Feature preprocessing off by default (pass-through) so batch runs are not blocked by an interactive prompt; set `1` to enable |
+| `VALIDATION_MODE` | `walk_forward_rolling` | `blocking` / `walk_forward_expanding` / `walk_forward_rolling` (agent overrides the Python default) |
+| `WF_N_SPLITS` | `5` | Walk-forward fold count |
+| `WF_VAL_RATIO` | `0.2` | Per-fold validation ratio |
+| `WF_GAP` | `10` | Train/val gap |
+| `VENV_ACTIVATE` | `$HOME/venvs/finlab/bin/activate` | Path to the Python venv activate script (preferred) |
+| `CONDA_ENV_NAME` | `finlab` | Conda env name (only used when the venv is missing) |
+| `CONDA_SH_PATH` | `$HOME/miniconda3/etc/profile.d/conda.sh` | Conda init script (fallback) |
 
 ---
 
-## 檔案結構
+## File layout
 
 ```
-workspace_vscoding/
-├── Batch_training.bat        # Windows 啟動器（WSL 重啟迴圈）
-├── Batch_training.sh         # WSL 訓練代理（核心邏輯）
-├── ATT+Flood.py              # Phase 1: AutoML 超參數搜尋
-├── ATT+Dflooding.py          # Phase 2: 固定參數重複訓練
-├── .batch_training_state     # 執行狀態檔（自動產生/清除）
-├── logs/                     # 訓練 log 輸出目錄
-│   └── batch_automl_3293_fundamental_20260419_*.log
-└── README_Batch_training.md  # 本文件
+docs/att_batch_training/
+├── Batch_training.bat        # Windows launcher (WSL restart loop)
+├── Batch_training.sh         # WSL training agent (core logic)
+├── ATT+Flood.py              # Phase 1: AutoML hyperparameter search
+├── ATT+Dflooding.py          # Phase 2: fixed-parameter repeated training
+├── .batch_training_state     # Runtime state file (auto-created / cleared)
+├── logs/                     # Training log directory
+└── README_Batch_training.md  # This document
 ```
 
 ---
 
-## 常見情境
+## Common scenarios
 
-### GPU 反覆逾時重啟
-若 WSL 重啟次數達到上限（預設 20 次），`.bat` 會停止重試。可嘗試：
-- 降低 `GPU_MEMORY_LIMIT_MB`
-- 設定 `TRAIN_MODE=safe`
-- 檢查 GPU 散熱
+### GPU repeatedly times out and restarts
 
-### 想從特定 phase/model 開始
-直接編輯 `.batch_training_state` 中的 `completed=` 欄位，加入已完成的標記即可跳過。
+If WSL restarts hit the retry cap (default 20), the `.bat` gives up.
+Things to try:
+- lower `GPU_MEMORY_LIMIT_MB`
+- set `TRAIN_MODE=safe`
+- check GPU cooling
 
-### 只想跑 Phase 2（已有 AutoML 結果）
-在 `.batch_training_state` 中將所有 `automl:*` 標記為已完成，並設定 `current_phase=dflooding`。
+### Restart from a specific phase / model
+
+Edit the `completed=` field in `.batch_training_state` and add the
+markers you want to skip.
+
+### Only run Phase 2 (AutoML results already exist)
+
+Mark every `automl:*` entry in `.batch_training_state` as completed and
+set `current_phase=dflooding`.
 
 ---
 
-## 相依性
+## Dependencies
 
-- Windows 10/11 + WSL2 (distro 名稱預設 `Ubuntu`；若不同請改 `Batch_training.bat` 的 `WSL_DISTRO`)
-- WSL 端 Python 環境：優先使用 venv `~/venvs/finlab`；如不存在則 fallback 到 conda `finlab`
-- RTX 5080（或其他 CUDA GPU）
-- Python 套件詳見 [requirements.txt](requirements.txt)（由 finlab venv `pip freeze` 產生）。
-  - 安裝：`python -m venv ~/venvs/finlab && source ~/venvs/finlab/bin/activate && pip install -r requirements.txt`
-  - 注意：TensorFlow 為自編 wheel（`tensorflow==2.20.0-dev0+selfbuilt`，含 sm_120 支援，給 RTX 5080/5090 Blackwell 用），不在 PyPI；需另從本地 wheel 安裝或自編。
+- Windows 10/11 + WSL2 (default distro name `Ubuntu`; if different,
+  edit `WSL_DISTRO` in `Batch_training.bat`)
+- WSL Python environment: prefer the `~/venvs/finlab` venv; fall back
+  to the `finlab` conda env if the venv does not exist
+- RTX 5080 (or any other CUDA GPU)
+- Python packages: see [requirements.txt](requirements.txt) (produced
+  by `pip freeze` in the finlab venv).
+  - Install:
+    `python -m venv ~/venvs/finlab && source ~/venvs/finlab/bin/activate && pip install -r requirements.txt`
+  - Note: TensorFlow is a self-built wheel
+    (`tensorflow==2.20.0-dev0+selfbuilt`, with sm_120 support for
+    Blackwell RTX 5080/5090); it is not on PyPI and must be installed
+    from a local wheel or built from source.
