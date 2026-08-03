@@ -1,5 +1,7 @@
 # TW-50 Attention + Flooding + DES Pipeline
 
+> **Paper snapshot**: this repository accompanies the IEEE Access submission *“Dynamic-Flooding Transformer Ensembles for Reinforcement-Learning-Based Equity Market Timing”*. The exact code state used in the paper is tagged as [`v1.0-ieeeaccess-submission`](https://github.com/tunglich/DESQ/releases). The `main` branch may contain post-submission changes; check out the tag for byte-exact reproduction.
+
 A market-timing framework for the TWSE Top-50 constituents that stacks:
 
 1. **Attention (ATT) sequence classifier** with static Flooding regularization (Bayesian hyperparameter search).
@@ -87,9 +89,17 @@ Reference guides for the internal end-to-end training pipeline that produced the
 
 ## Feature aspects (5)
 
-`fundamental`, `trade`, `tech_trend`, `moment`, `macro`.
+The pipeline uses five attribute-grouped feature aspects. The names in the accompanying IEEE Access paper differ slightly from the identifiers used in the code and on disk; the table below is the canonical mapping.
 
-Each CSV under `features/` follows the layout `<aspect>_<stock_id>.csv`, with the last 4 columns being labels `y_10, y_20, y_40, y_60`.
+| Paper name    | Code identifier | On-disk file pattern           | Description                                                        |
+| ------------- | --------------- | ------------------------------ | ------------------------------------------------------------------ |
+| Fundamental   | `fundamental`   | `features/fundamental_<id>.csv` | Valuation ratios, revenue / EPS / margin growth at MoM/QoQ/YoY.    |
+| Float         | `trade`         | `features/trade_<id>.csv`       | Chip-flow / smart-money: foreign & institutional holdings, margin, short-balance, net-buy. |
+| Price-Trend   | `tech_trend`    | `features/tech_trend_<id>.csv`  | Trend-following technicals: SMA/HullMA deviations, Aroon, MACD, Bollinger, OHLCV. |
+| Momentum      | `moment`        | `features/moment_<id>.csv`      | Oscillator technicals: RSI, KD, Williams %R, CCI, ADX, acceleration, rolling beta. |
+| Macro         | `macro`         | `features/macro_<id>.csv`       | Rates, commodities, global equity indices, VIX, FX, TAIEX futures/options. |
+
+Each CSV follows the layout `<aspect>_<stock_id>.csv`, with the last 4 columns being labels `y_10, y_20, y_40, y_60`.
 
 ## Universe
 
@@ -105,12 +115,16 @@ features (5 aspects)│  tw50_flood.py  │  Bayesian tuning over ATT hyperparam
                              ▼
                     ┌─────────────────┐
                     │ tw50_dflood.py  │  Fixed-HP retraining + Dynamic Flooding
-                    │   (Stage 2)     │  Emits DES-train (in-sample 2020..2023)
+                    │   (Stage 2)     │  Default: DES-train (in-sample 2020..2023)
+                    │                 │  With --des-oof: DES-train is OOF from
+                    │                 │  an inner ATT (leakage-free for Stage 3)
                     └────────┬────────┘  + test (OOS 2024..2026) probabilities
                              ▼
                     ┌─────────────────┐
                     │  tw50_des.py    │  KNORA-E over 5 ATT probabilities +
                     │   (Stage 3)     │  signal-pattern-driven backtest
+                    │                 │  --strict-oof aborts if any aspect's
+                    │                 │  DES-train rows are not source='oof'
                     └─────────────────┘  Reports cum_model vs buy&hold
 ```
 
@@ -133,8 +147,10 @@ tw50_pipeline/
 │   └── <id>.csv                 # populated by fetch_prices.py
 ├── fetch_prices.py              # yfinance -> prices/<id>.csv helper
 ├── tw50_flood.py                # Stage 1: hyperparameter + flooding-b search
-├── tw50_dflood.py               # Stage 2: Dynamic Flooding retrain + predict
-├── tw50_des.py                  # Stage 3: KNORA-E ensemble + backtest
+├── tw50_dflood.py               # Stage 2: Dynamic Flooding retrain + predict (--des-oof)
+├── tw50_des.py                  # Stage 3: KNORA-E ensemble + backtest (--strict-oof)
+├── Makefile                     # one-command recipes (Linux/WSL/macOS)
+├── run.ps1                      # equivalent PowerShell task runner (Windows)
 ├── artifacts/                   # generated at runtime (git-ignored)
 │   ├── flood/{hyperbayes,feature_selection,feature_scaler,experiments}/
 │   ├── dflood/{feature_selection,feature_scaler,models,pred}/
@@ -152,7 +168,9 @@ Python 3.11 (tested), 3.10 also works.
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements.txt        # tested compatible ranges
+# or, to reproduce the paper's exact environment:
+pip install -r requirements-lock.txt   # exact versions (pip freeze snapshot)
 ```
 
 ```bash
@@ -160,7 +178,9 @@ pip install -r requirements.txt
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements.txt        # tested compatible ranges
+# or, to reproduce the paper's exact environment:
+pip install -r requirements-lock.txt   # exact versions (pip freeze snapshot)
 ```
 
 If you want the price fetcher (Stage 3 backtest), install `yfinance` in addition:
@@ -174,6 +194,28 @@ TensorFlow 2.21 uses the GPU on Linux/WSL if CUDA is available; on Windows it wi
 ## Quick start — end-to-end smoke test (one stock, ~5 minutes on CPU)
 
 The commands below reproduce the smoke test that was executed on 2026-07-30 in this repo. Elapsed times were measured on Windows / CPU-only TF 2.21.
+
+### One-command targets
+
+Use the shipped task runners to avoid copy-pasting stage-by-stage:
+
+```bash
+# Linux / WSL / macOS
+make smoke        # in-sample DES-fit (legacy behaviour)
+make smoke-oof    # OOF DES-fit (leakage-free; recommended)
+make full-2330    # production settings for TSMC (~20 min on GPU, uses --des-oof)
+```
+
+```powershell
+# Windows PowerShell (no `make` required)
+.\run.ps1 smoke
+.\run.ps1 smoke-oof
+.\run.ps1 full-2330
+```
+
+Run `make help` or `.\run.ps1 help` for the full target list, and `make preflight` / `.\run.ps1 preflight` for environment sanity checks.
+
+### Explicit commands (equivalent to `make smoke`)
 
 ```powershell
 # 0. Fetch OHLCV for 2330 (needed by Stage 3 backtest).
@@ -249,8 +291,11 @@ python -c "from pathlib import Path; ids = ['2330','2454']; missing = [s for s i
 ## Notes and caveats
 
 - **Prices are user-supplied.** `tw50_des.py` reads `prices/<stock_id>.csv` with columns `Date,Open,High,Low,Close,Volume`. Use `fetch_prices.py` (yfinance) or bring your own source. Without a price CSV, Stage 3 still saves the DES/RF probability files but skips the backtest.
-- **Walk-forward rolling constants**: `WF_N_SPLITS=5`, `WF_VAL_RATIO=0.2`, `WF_GAP=10` trading days between train and validation to reduce leakage.
-- **Stage 2 emits both train and test predictions.** The DES-train window (2020-01-01..2023-12-31) predictions are *in-sample* w.r.t. the ATT trained on 2010-2023; they exist so that Stage 3's KNORA-E has enough labeled samples to fit. The reported backtest metrics (`cum_model`, `excess_ret`) still come from the fully out-of-sample test window 2024-01-01..2026-03-31.
+- **Walk-forward rolling constants**: `WF_N_SPLITS=5`, `WF_VAL_RATIO=0.2`, `WF_GAP=20` trading days between train and validation. The gap is set to be `>=` the 20-day label horizon so that no train sample's forward-20-day label window overlaps any validation sample. All three constants are overridable via environment variables of the same name (e.g. `WF_GAP=30 python tw50_flood.py ...`).
+- **Stage 2 emits both train and test predictions.** By default the DES-train window (2020-01-01..2023-12-31) is predicted by the same ATT that was trained on 2010-2023, so those rows are *in-sample* w.r.t. the ATT. The reported out-of-sample metrics still come from the strictly held-out 2024-01-01..2026-03-31 window, but the KNORA-E meta-learner does see in-sample ATT probabilities during its fit.
+  - Pass `--des-oof` to `tw50_dflood.py` to instead train an inner ATT on `TRAIN_START..(DES_TRAIN_START - WF_GAP)` and use it to predict the DES-train window. The resulting rows are tagged `source='oof'` in the CSV. Test-window rows are always tagged `source='test'` and produced by the final ATT trained on the full 2010-2023 window.
+  - Pass `--strict-oof` to `tw50_des.py` to abort the run if any aspect's DES-train rows are not `source='oof'` (a leakage guard for reproducibility scripts).
+  - The Makefile / `run.ps1` targets `smoke-oof`, `full-2330`, `full-flagships`, and `full-top50` all use `--des-oof` + `--strict-oof` by default.
 - **deslib 0.3.7 + scikit-learn 1.7 compat.** `tw50_des.py` monkey-patches `BaseEstimator._validate_data` so deslib's `KNORAE.fit(...)` keeps working. Nothing else in your environment is affected.
 - **Environment override variables** (all optional):
   - `FEATURE_ROOT` — where to look for `<aspect>_<id>.csv` (default: `./features`).
@@ -276,4 +321,17 @@ The `dqn/` subfolder contains a Deep Q-Network trader adapted from `tunglich/Mar
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT for the source code — see [LICENSE](LICENSE).
+
+### Data licensing
+
+The repository distributes three categories of data with different licensing terms; be sure you comply with the applicable terms before redistributing anything derived from them.
+
+| Location                                    | Origin                                     | License / redistribution status                                                                                                                                        |
+| ------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `features/*.csv` (TW-50 aspect features)    | Derived from licensed CMoney fundamental / chip-flow data. | **Derived features only**; raw CMoney data is *not* included. Redistributed here for academic reproducibility of the paper. Commercial re-use requires a CMoney licence. |
+| `evaluation/*.csv`, `us/baselines/**/*.csv` | Produced by the scripts in this repository. | MIT, same as the source code.                                                                                                                                          |
+| `prices/*.csv`                              | User-supplied (e.g. yfinance via `fetch_prices.py`). | Subject to the source provider's terms; git-ignored, never committed.                                                                                                  |
+| `us/features/**.csv` (Dow30 / SP100 / NDX100 aspects) | Derived from public sources (yfinance + FRED). | Redistributable under MIT; independently reproducible via the scripts in `us/`.                                                                                        |
+
+If you only need to verify the framework end-to-end without a CMoney licence, use the US extension (`us/`) which relies solely on public data.

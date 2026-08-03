@@ -139,7 +139,7 @@ Batch_training.bat --reset
 | `--validation` | *(interactive prompt)* | `blocking` / `walk_forward_expanding` / `walk_forward_rolling` |
 | `--wf-splits` | `5` | Number of walk-forward folds |
 | `--wf-val-ratio` | `0.2` | Per-fold validation ratio |
-| `--wf-gap` | `10` | Train/val gap (guards against leakage) |
+| `--wf-gap` | `20` | Train/val purge gap (>= 20-day label horizon) |
 | `--reset` | — | Clear the state file and start over |
 
 ---
@@ -163,7 +163,7 @@ be overridden by an outer `export`):
 | `VALIDATION_MODE` | `walk_forward_rolling` | `blocking` / `walk_forward_expanding` / `walk_forward_rolling` (agent overrides the Python default) |
 | `WF_N_SPLITS` | `5` | Walk-forward fold count |
 | `WF_VAL_RATIO` | `0.2` | Per-fold validation ratio |
-| `WF_GAP` | `10` | Train/val gap |
+| `WF_GAP` | `20` | Train/val purge gap (>= 20-day label horizon) |
 | `VENV_ACTIVATE` | `$HOME/venvs/finlab/bin/activate` | Path to the Python venv activate script (preferred) |
 | `CONDA_ENV_NAME` | `finlab` | Conda env name (only used when the venv is missing) |
 | `CONDA_SH_PATH` | `$HOME/miniconda3/etc/profile.d/conda.sh` | Conda init script (fallback) |

@@ -24,9 +24,14 @@ Usage
 Outputs
 -------
     ./artifacts/dflood/pred/<stock>_<aspect>.csv
-        columns: Date, y_true_20, prob_down, prob_up
-        Covers 2020-01-01..TRAIN_END (in-sample, needed by Stage 3 KNORA-E fit)
-        and TEST_START..TEST_END (out-of-sample, backtested by Stage 3).
+        columns: Date, y_true_20, prob_down, prob_up, source
+        - source='insample': DES-train slice, predicted by ATT that was also
+          trained on this slice (legacy behavior, default).
+        - source='oof'     : DES-train slice, predicted by an INNER ATT trained
+          only on TRAIN_START..(DES_TRAIN_START - WF_GAP) so predictions are
+          strictly out-of-fold. Enabled with `--des-oof`.
+        - source='test'    : TEST_START..TEST_END, predicted by the final ATT
+          trained on the full TRAIN_START..TRAIN_END window.
     ./artifacts/dflood/models/<stock>_<aspect>.keras
         Retrained model weights (loadable via keras.models.load_model).
 """
@@ -244,53 +249,34 @@ def load_best_summary(aspect: str, stock_id: str) -> dict:
         return json.load(fh)
 
 
-def retrain_and_predict(aspect: str, stock_id: str, epochs: int, batch_size: int) -> pd.DataFrame:
-    print(f'\n=== DFLOOD: stock={stock_id}, aspect={aspect} ===')
-    summary = load_best_summary(aspect, stock_id)
-    hp = summary.get('hyperparameters', {})
-    lookback = int(summary.get('lookback_window', 20))
-    init_b = float(summary.get('flooding_b', 0.10))
-    print(f'[HP] lookback={lookback}, init_flooding_b={init_b}, layers={hp.get("attn_layers")}')
+def _fit_att(
+    X_tr: np.ndarray, y_tr_oh: np.ndarray, hp: dict, init_b: float,
+    epochs: int, batch_size: int, val_frac: float = 0.2, log_tag: str = '',
+) -> tuple[FloodingModel, DynamicFloodingCallback]:
+    """Fit one FloodingModel on the given windows using WF last-fold val split.
 
-    processed = preprocess_features(aspect, stock_id)
-    train_df = processed.loc[TRAIN_START:TRAIN_END]
-    test_df = processed.loc[TEST_START:TEST_END]
-
-    if len(train_df) < lookback + 100:
-        raise RuntimeError(f'Train too short: {len(train_df)} rows.')
-    if len(test_df) < lookback:
-        raise RuntimeError(f'Test too short: {len(test_df)} rows for lookback={lookback}.')
-
-    # For seamless windowing at the boundary, stitch tail of train + test.
-    stitch_start = train_df.index[-(lookback - 1)] if lookback > 1 else test_df.index[0]
-    tail_train = train_df.loc[stitch_start:]
-    combined_test = pd.concat([tail_train, test_df]) if lookback > 1 else test_df
-
-    X_tr, y_tr, dates_tr = build_windows(train_df, lookback=lookback)
-    X_te, y_te, dates_te = build_windows(combined_test, lookback=lookback)
-    # dates_te is a DatetimeIndex; comparisons already yield an ndarray.
-    mask_te = np.asarray((dates_te >= pd.Timestamp(TEST_START)) &
-                          (dates_te <= pd.Timestamp(TEST_END)))
-    X_te = X_te[mask_te]
-    y_te = y_te[mask_te]
-    dates_te = dates_te[mask_te]
-
-    X_tr = X_tr.astype(np.float32)
-    X_te = X_te.astype(np.float32)
-    y_tr_oh = to_categorical(y_tr, num_classes=2).astype(np.float32)
-
-    # Use the last WF fold's val slice as the in-training validation set,
-    # to stay consistent with Stage 1's evaluation regime.
+    val_frac is only used if walk_forward_folds cannot be invoked (e.g. inner
+    OOF training with a short window). Otherwise the last WF fold is used
+    for validation to stay consistent with Stage 1's evaluation regime.
+    """
+    n = len(X_tr)
     val_slice = None
-    for tr_idx, va_idx in walk_forward_folds(len(X_tr)):
-        val_slice = (tr_idx, va_idx)
+    try:
+        for tr_idx, va_idx in walk_forward_folds(n):
+            val_slice = (tr_idx, va_idx)
+    except Exception:
+        val_slice = None
+
     if val_slice is None:
-        raise RuntimeError('walk_forward_folds returned no fold.')
-    tr_idx, va_idx = val_slice
+        n_val = max(1, int(n * val_frac))
+        tr_idx = np.arange(0, n - n_val)
+        va_idx = np.arange(n - n_val, n)
+    else:
+        tr_idx, va_idx = val_slice
+
     x_train, y_train = X_tr[tr_idx], y_tr_oh[tr_idx]
     x_val, y_val = X_tr[va_idx], y_tr_oh[va_idx]
 
-    # Class weights for imbalance.
     labels_int = np.argmax(y_train, axis=1)
     uniq, counts = np.unique(labels_int, return_counts=True)
     cw = {int(u): float((1.0 / c) * len(labels_int)) for u, c in zip(uniq, counts)}
@@ -311,47 +297,136 @@ def retrain_and_predict(aspect: str, stock_id: str, epochs: int, batch_size: int
                           patience=25, restore_best_weights=True, verbose=0),
         ],
     )
-    print(f'[FIT] final_b={model.flooding_b:.2f}, wall={time.time()-started:.1f}s')
+    tag = f' ({log_tag})' if log_tag else ''
+    print(f'[FIT{tag}] final_b={model.flooding_b:.2f}, wall={time.time()-started:.1f}s, '
+          f'n_train={len(x_train)}, n_val={len(x_val)}')
+    return model, dflood_cb
 
-    # Predict on test window (out-of-sample).
-    probs = model.predict(X_te, batch_size=batch_size, verbose=0)
-    df_pred_te = pd.DataFrame({
-        'Date': dates_te,
-        'y_true_20': y_te.astype(int),
+
+def _predict_slice(
+    model: FloodingModel, processed: pd.DataFrame,
+    lookback: int, batch_size: int,
+    slice_start: str, slice_end: str, source: str,
+) -> pd.DataFrame:
+    """Predict on a date slice, using a lookback stitch so the first
+    window has enough context. `source` is written into the output CSV."""
+    target = processed.loc[slice_start:slice_end]
+    if len(target) == 0:
+        return pd.DataFrame(columns=['Date', 'y_true_20', 'prob_down', 'prob_up', 'source'])
+
+    if lookback > 1:
+        stitch_from = processed.index[processed.index < pd.Timestamp(slice_start)]
+        if len(stitch_from) >= lookback - 1:
+            stitch_start = stitch_from[-(lookback - 1)]
+            combined = processed.loc[stitch_start:slice_end]
+        else:
+            combined = target
+    else:
+        combined = target
+
+    X, y, dates = build_windows(combined, lookback=lookback)
+    mask = np.asarray((dates >= pd.Timestamp(slice_start)) &
+                      (dates <= pd.Timestamp(slice_end)))
+    X = X[mask].astype(np.float32)
+    y = y[mask]
+    dates = dates[mask]
+    if len(X) == 0:
+        return pd.DataFrame(columns=['Date', 'y_true_20', 'prob_down', 'prob_up', 'source'])
+
+    probs = model.predict(X, batch_size=batch_size, verbose=0)
+    return pd.DataFrame({
+        'Date': dates,
+        'y_true_20': y.astype(int),
         'prob_down': probs[:, 0],
         'prob_up': probs[:, 1],
+        'source': source,
     })
 
-    # Also emit in-sample predictions for the DES-train window so Stage 3
-    # (tw50_des.py) has data to fit KNORA-E on.
-    mask_des_train = np.asarray((dates_tr >= pd.Timestamp(DES_TRAIN_START)) &
-                                  (dates_tr <= pd.Timestamp(TRAIN_END)))
-    if mask_des_train.any():
-        X_tr_des = X_tr[mask_des_train]
-        y_tr_des = y_tr[mask_des_train]
-        dates_tr_des = dates_tr[mask_des_train]
-        probs_tr = model.predict(X_tr_des, batch_size=batch_size, verbose=0)
-        df_pred_tr = pd.DataFrame({
-            'Date': dates_tr_des,
-            'y_true_20': y_tr_des.astype(int),
-            'prob_down': probs_tr[:, 0],
-            'prob_up': probs_tr[:, 1],
-        })
-        df_pred = pd.concat([df_pred_tr, df_pred_te], axis=0, ignore_index=True)
-    else:
-        df_pred = df_pred_te
 
-    df_pred = (df_pred.drop_duplicates(subset=['Date'], keep='last')
-                       .sort_values('Date')
-                       .reset_index(drop=True))
+def retrain_and_predict(
+    aspect: str, stock_id: str, epochs: int, batch_size: int,
+    des_oof: bool = False,
+) -> pd.DataFrame:
+    print(f'\n=== DFLOOD: stock={stock_id}, aspect={aspect}, des_oof={des_oof} ===')
+    summary = load_best_summary(aspect, stock_id)
+    hp = summary.get('hyperparameters', {})
+    lookback = int(summary.get('lookback_window', 20))
+    init_b = float(summary.get('flooding_b', 0.10))
+    print(f'[HP] lookback={lookback}, init_flooding_b={init_b}, layers={hp.get("attn_layers")}')
+
+    processed = preprocess_features(aspect, stock_id)
+    train_df = processed.loc[TRAIN_START:TRAIN_END]
+    test_df = processed.loc[TEST_START:TEST_END]
+
+    if len(train_df) < lookback + 100:
+        raise RuntimeError(f'Train too short: {len(train_df)} rows.')
+    if len(test_df) < lookback:
+        raise RuntimeError(f'Test too short: {len(test_df)} rows for lookback={lookback}.')
+
+    frames: list[pd.DataFrame] = []
+
+    # -- OOF DES-train predictions from an INNER ATT model.
+    # Inner-train ends before DES_TRAIN_START with an extra WF_GAP-day purge
+    # so no 20-day forward label can leak into the DES-train predictions.
+    if des_oof:
+        inner_cutoff = pd.Timestamp(DES_TRAIN_START) - pd.Timedelta(days=WF_GAP + lookback)
+        inner_train_df = train_df.loc[:inner_cutoff.strftime('%Y-%m-%d')]
+        if len(inner_train_df) < lookback + 100:
+            raise RuntimeError(
+                f'Inner-train too short for OOF ({len(inner_train_df)} rows). '
+                f'Reduce WF_GAP or DES_TRAIN_START.'
+            )
+        X_in, y_in, _ = build_windows(inner_train_df, lookback=lookback)
+        X_in = X_in.astype(np.float32)
+        y_in_oh = to_categorical(y_in, num_classes=2).astype(np.float32)
+        inner_model, _ = _fit_att(
+            X_in, y_in_oh, hp, init_b, epochs, batch_size, log_tag='inner',
+        )
+        df_pred_des = _predict_slice(
+            inner_model, processed, lookback, batch_size,
+            slice_start=DES_TRAIN_START, slice_end=TRAIN_END, source='oof',
+        )
+        frames.append(df_pred_des)
+        del inner_model
+        K.clear_session()
+        gc.collect()
+
+    # -- Final ATT trained on the full TRAIN_START..TRAIN_END window.
+    X_tr, y_tr, dates_tr = build_windows(train_df, lookback=lookback)
+    X_tr = X_tr.astype(np.float32)
+    y_tr_oh = to_categorical(y_tr, num_classes=2).astype(np.float32)
+    final_model, dflood_cb = _fit_att(
+        X_tr, y_tr_oh, hp, init_b, epochs, batch_size, log_tag='final',
+    )
+
+    # If OOF is off, keep the legacy in-sample DES-train predictions from the
+    # final model so tw50_des.py has data to fit KNORA-E on.
+    if not des_oof:
+        df_pred_des = _predict_slice(
+            final_model, processed, lookback, batch_size,
+            slice_start=DES_TRAIN_START, slice_end=TRAIN_END, source='insample',
+        )
+        frames.append(df_pred_des)
+
+    # Test predictions always come from the final model.
+    df_pred_te = _predict_slice(
+        final_model, processed, lookback, batch_size,
+        slice_start=TEST_START, slice_end=TEST_END, source='test',
+    )
+    frames.append(df_pred_te)
+
+    df_pred = (pd.concat(frames, axis=0, ignore_index=True)
+                 .drop_duplicates(subset=['Date'], keep='last')
+                 .sort_values('Date')
+                 .reset_index(drop=True))
     out_pred = PRED_DIR / f'{stock_id}_{aspect}.csv'
     df_pred.to_csv(out_pred, index=False)
-    print(f'[SAVE] pred -> {out_pred}  (train_rows={len(df_pred)-len(df_pred_te)}, test_rows={len(df_pred_te)})')
+    counts = df_pred['source'].value_counts().to_dict()
+    print(f'[SAVE] pred -> {out_pred}  rows_by_source={counts}')
 
-    # Save model weights + dynamic flooding history.
     out_model = MODEL_DIR / f'{stock_id}_{aspect}.keras'
     try:
-        model.save(out_model)
+        final_model.save(out_model)
     except Exception as err:
         print(f'[WARN] could not save model .keras: {err}')
 
@@ -359,8 +434,9 @@ def retrain_and_predict(aspect: str, stock_id: str, epochs: int, batch_size: int
     with open(hist_path, 'w', encoding='utf-8') as fh:
         json.dump({
             'initial_b': init_b,
-            'final_b': float(model.flooding_b),
+            'final_b': float(final_model.flooding_b),
             'history': dflood_cb.history,
+            'des_oof': bool(des_oof),
         }, fh, indent=2)
 
     K.clear_session()
@@ -381,17 +457,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                    help=f'comma-separated aspects or "all" (default: all). Valid: {ASPECTS}')
     p.add_argument('--epochs', type=int, default=120)
     p.add_argument('--batch-size', type=int, default=64)
+    p.add_argument('--des-oof', action='store_true',
+                   help='Emit out-of-fold DES-train predictions from an inner ATT '
+                        'trained only on TRAIN_START..(DES_TRAIN_START - WF_GAP). '
+                        'Recommended for leakage-free Stage-3 KNORA-E fitting.')
     args = p.parse_args(argv)
 
     configure_gpu()
     stock_ids = parse_stock_ids(args.stock_ids, args.top50)
     aspects = parse_aspects(args.aspect)
-    print(f'[PLAN] stocks={stock_ids}, aspects={aspects}, epochs={args.epochs}')
+    print(f'[PLAN] stocks={stock_ids}, aspects={aspects}, epochs={args.epochs}, '
+          f'des_oof={args.des_oof}')
 
     for sid in stock_ids:
         for aspect in aspects:
             try:
-                retrain_and_predict(aspect, sid, args.epochs, args.batch_size)
+                retrain_and_predict(aspect, sid, args.epochs, args.batch_size,
+                                    des_oof=args.des_oof)
             except Exception as exc:  # noqa: BLE001
                 print(f'[FAIL] {sid}/{aspect}: {exc}')
                 import traceback

@@ -128,14 +128,19 @@ SHARES_PER_LOT = 1000
 # =============================================================================
 
 
-def load_aspect_predictions(stock_id: str) -> pd.DataFrame:
+def load_aspect_predictions(stock_id: str) -> tuple[pd.DataFrame, dict[str, str]]:
     """Load the 5 aspect prediction CSVs and stack their prob_up columns.
 
     Missing aspects are skipped (not raised). The result has one column per
     present aspect and a datetime index sorted ascending.
+
+    Also returns a mapping {aspect -> source_mode} where source_mode is one of
+    {'oof', 'insample', 'legacy'} depending on how the DES-train slice was
+    produced upstream. 'legacy' means the CSV predates the `source` column.
     """
     frames = []
     present = []
+    source_modes: dict[str, str] = {}
     for aspect in FEATURE_ORDER:
         fp = DFLOOD_PRED_DIR / f'{stock_id}_{aspect}.csv'
         if not fp.exists():
@@ -143,6 +148,20 @@ def load_aspect_predictions(stock_id: str) -> pd.DataFrame:
             continue
         df = pd.read_csv(fp, parse_dates=['Date'])
         df = df[~df['Date'].duplicated(keep='last')].sort_values('Date')
+
+        if 'source' in df.columns:
+            des_slice = df[(df['Date'] >= pd.Timestamp(DES_TRAIN_START)) &
+                            (df['Date'] <= pd.Timestamp(DES_TRAIN_END))]
+            src_vals = set(des_slice['source'].dropna().unique().tolist())
+            if 'oof' in src_vals:
+                source_modes[aspect] = 'oof'
+            elif 'insample' in src_vals:
+                source_modes[aspect] = 'insample'
+            else:
+                source_modes[aspect] = 'legacy'
+        else:
+            source_modes[aspect] = 'legacy'
+
         s = pd.Series(df['prob_up'].to_numpy(), index=df['Date'], name=aspect)
         frames.append(s)
         present.append(aspect)
@@ -151,7 +170,7 @@ def load_aspect_predictions(stock_id: str) -> pd.DataFrame:
     X_all = pd.concat(frames, axis=1)
     X_all.index.name = 'Date'
     X_all = X_all.ffill().bfill().fillna(0.5).astype(np.float64)
-    return X_all[present]
+    return X_all[present], source_modes
 
 
 def load_labels(stock_id: str, index: pd.DatetimeIndex) -> pd.Series:
@@ -415,10 +434,20 @@ def plot_backtest(stock_id: str, equity: pd.DataFrame, out_path: Path) -> None:
 
 
 def run_one(stock_id: str, *, threshold: float, long: int, short: int,
-             s2l: int, l2s: int, force: bool) -> dict:
+             s2l: int, l2s: int, force: bool,
+             strict_oof: bool = False) -> dict:
     print(f'\n=== DES: {stock_id} ===')
-    X_all = load_aspect_predictions(stock_id)
+    X_all, source_modes = load_aspect_predictions(stock_id)
     y_all = load_labels(stock_id, X_all.index)
+
+    non_oof = {a: m for a, m in source_modes.items() if m != 'oof'}
+    if non_oof:
+        msg = (f'[{stock_id}] DES-train slice contains non-OOF predictions '
+               f'({non_oof}); rerun tw50_dflood.py with --des-oof for '
+               f'leakage-free KNORA-E fitting.')
+        if strict_oof:
+            raise RuntimeError(msg)
+        print(f'[WARN] {msg}')
 
     X_train = X_all.loc[DES_TRAIN_START:DES_TRAIN_END]
     y_train = y_all.loc[DES_TRAIN_START:DES_TRAIN_END]
@@ -495,13 +524,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument('--s2l', type=int, default=DEFAULT_S2L, help='short-to-long transition days')
     p.add_argument('--l2s', type=int, default=DEFAULT_L2S, help='long-to-short transition days')
     p.add_argument('--force', action='store_true', help='retrain even if cached models exist')
+    p.add_argument('--strict-oof', action='store_true',
+                   help='Abort if any aspect prediction CSV is not tagged '
+                        "source='oof' on the DES-train slice (leakage guard).")
     p.add_argument('--no-show', action='store_true',
                    help='(kept for CLI compat; plots are always saved to disk without display)')
     args = p.parse_args(argv)
 
     stock_ids = parse_stock_ids(args.stock_ids, args.top50)
     print(f'[PLAN] DES over stocks={stock_ids}, threshold={args.threshold}, '
-          f'long={args.long}, short={args.short}, s2l={args.s2l}, l2s={args.l2s}')
+          f'long={args.long}, short={args.short}, s2l={args.s2l}, l2s={args.l2s}, '
+          f'strict_oof={args.strict_oof}')
 
     rows = []
     for sid in stock_ids:
@@ -510,7 +543,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                           threshold=args.threshold,
                           long=args.long, short=args.short,
                           s2l=args.s2l, l2s=args.l2s,
-                          force=args.force)
+                          force=args.force,
+                          strict_oof=args.strict_oof)
             rows.append(row)
         except Exception as exc:  # noqa: BLE001
             print(f'[FAIL] {sid}: {exc}')

@@ -87,12 +87,16 @@ TEST_START = '2024-01-01'
 TEST_END = '2026-03-31'
 
 # Feature aspects (sentiment intentionally excluded).
+# Paper-to-code aspect name mapping (see README "Feature aspects" table):
+#   Fundamental -> 'fundamental'   Float       -> 'trade'
+#   Price-Trend -> 'tech_trend'    Momentum    -> 'moment'
+#   Macro       -> 'macro'
 ASPECTS: tuple[str, ...] = ('fundamental', 'trade', 'tech_trend', 'moment', 'macro')
 
-# Walk-forward rolling: 5 folds, 20% val block, 10-day gap.
-WF_N_SPLITS = 5
-WF_VAL_RATIO = 0.20
-WF_GAP = 10
+# Walk-forward rolling: 5 folds, 20% val block, purge gap >= label horizon (20d).
+WF_N_SPLITS = int(os.getenv('WF_N_SPLITS', '5'))
+WF_VAL_RATIO = float(os.getenv('WF_VAL_RATIO', '0.20'))
+WF_GAP = int(os.getenv('WF_GAP', '20'))
 
 # Dynamic-flooding candidate grid: b in [0.0, 0.4], step 0.05 (9 values).
 FLOODING_GRID: tuple[float, ...] = tuple(round(0.05 * i, 2) for i in range(9))  # 0.00 .. 0.40

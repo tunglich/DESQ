@@ -150,7 +150,7 @@ def _resolve_validation_mode() -> str:
 VALIDATION_MODE = _resolve_validation_mode()
 WF_N_SPLITS = int(os.getenv('WF_N_SPLITS', '5'))
 WF_VAL_RATIO = float(os.getenv('WF_VAL_RATIO', '0.2'))
-WF_GAP = int(os.getenv('WF_GAP', '10'))
+WF_GAP = int(os.getenv('WF_GAP', '20'))
 WF_VAL_YEARS = float(os.getenv('WF_VAL_YEARS', '0'))
 WF_TRADING_DAYS_PER_YEAR = int(os.getenv('WF_TRADING_DAYS_PER_YEAR', '252'))
 WF_VAL_SAMPLES = int(round(WF_VAL_YEARS * WF_TRADING_DAYS_PER_YEAR)) if WF_VAL_YEARS > 0 else 0
