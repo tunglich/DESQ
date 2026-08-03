@@ -137,14 +137,16 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: ${{ steps.root.outputs.root }}/requirements-lock.txt
+          cache-dependency-path: ${{ steps.root.outputs.root }}/requirements.txt
 
-      - name: Install pinned dependencies
+      - name: Install dependencies (loose reqs; lock is Windows-CUDA specific)
         working-directory: ${{ steps.root.outputs.root }}
         run: |
           python -m pip install --upgrade pip
-          # CI runners have no GPU; the CPU TF wheel is what the lock resolves to.
-          pip install -r requirements-lock.txt
+          # requirements-lock.txt is a `pip freeze` from the Windows/CUDA host
+          # (contains file:///C:/... URLs and nvidia-* wheels). CI uses the
+          # loose requirements.txt, which resolves to CPU TF on ubuntu-latest.
+          pip install -r requirements.txt
 
       - name: Preflight (TF / sklearn / deslib visible?)
         working-directory: ${{ steps.root.outputs.root }}
