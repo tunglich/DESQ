@@ -36,6 +36,7 @@ jobs:
           fi
 
       - name: Verify shipped-data manifest (SHA-256)
+        id: manifest
         working-directory: ${{ steps.root.outputs.root }}
         run: |
           set -x
@@ -47,14 +48,27 @@ jobs:
           fi
           echo "manifest lines: $(wc -l < reproducibility/MANIFEST.sha256)"
           head -3 reproducibility/MANIFEST.sha256
+          # Diagnostic dump: hash a few files ourselves and see if they match.
+          for f in features/fundamental_1101.csv prices/2330.csv tw50_top50.csv; do
+            printf 'ACTUAL   %s  %s\n' "$(sha256sum "$f" | cut -c1-16)" "$f" | tee -a /tmp/manifest.log
+            printf 'MANIFEST %s  %s\n' "$(grep -F "  $f" reproducibility/MANIFEST.sha256 | cut -c1-16)" "$f" | tee -a /tmp/manifest.log
+          done
           # Every shipped features/*, prices/*, tw50_top50.csv must match.
-          # Drop --quiet so any mismatch is named in the log.
-          sha256sum -c reproducibility/MANIFEST.sha256 > /tmp/manifest.log 2>&1 || {
-            echo "::error::manifest verification failed; first 30 mismatches:"
-            grep -E 'FAIL|WARNING' /tmp/manifest.log | head -30
+          sha256sum -c reproducibility/MANIFEST.sha256 >> /tmp/manifest.log 2>&1 || {
+            echo "::error::manifest verification failed; see manifest-check-log artifact"
+            grep -E 'FAIL|WARNING' /tmp/manifest.log | head -30 || true
+            cp /tmp/manifest.log ./_manifest_log.txt
             exit 1
           }
           tail -1 /tmp/manifest.log
+
+      - name: Upload manifest-check log (on failure)
+        if: failure() && steps.manifest.conclusion == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-check-log
+          path: ${{ steps.root.outputs.root }}/_manifest_log.txt
+          if-no-files-found: warn
 
       - uses: actions/setup-python@v5
         with:
