@@ -24,13 +24,20 @@ was modified — the numbers below no longer apply.
 
 | file | lines | sha256 (prefix) |
 | --- | ---: | --- |
-| `tw50_top50.csv`                | 51   | `4f208f174d5e28c7` |
+| `tw50_top50.csv`                | 51   | `64d981198d67cc28` |
 | `prices/2330.csv`               | 1753 | `24343fa42a1544ab` |
-| `features/fundamental_2330.csv` | 8209 | `f6d1c533aaee9958` |
-| `features/trade_2330.csv`       | 6624 | `4562e7d516d5eada` |
-| `features/tech_trend_2330.csv`  | 8209 | `c90ff891babb01c3` |
-| `features/moment_2330.csv`      | 8209 | `f82eed4a43ada765` |
-| `features/macro_2330.csv`       | 8209 | `c14d79b609cdae92` |
+| `features/fundamental_2330.csv` | 8209 | `df88bc69a53ada91` |
+| `features/trade_2330.csv`       | 6624 | `2b4c3c364fec9d06` |
+| `features/tech_trend_2330.csv`  | 8209 | `c13c835477535a98` |
+| `features/moment_2330.csv`      | 8209 | `0bd628e83ebb32ee` |
+| `features/macro_2330.csv`       | 8209 | `552b0c2cc0f0c333` |
+
+> Prefixes above are SHA-256 of the LF-normalized blob as stored in git
+> (matches `git show :<file> | sha256sum`). On Windows with
+> `core.autocrlf=true` you may see a different hash for the working-tree
+> file; run the reviewer verification from a Linux/WSL clone or from
+> `python reproducibility/check_manifest.py` (which resolves that
+> difference via `.gitattributes`).
 
 Recompute:
 

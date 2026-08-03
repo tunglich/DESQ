@@ -2,3 +2,8 @@
 reproducibility/MANIFEST.sha256 text eol=lf
 us/baselines/run_all_baselines.sh text eol=lf
 .github/workflows/*.yml text eol=lf
+
+# Shipped data CSVs are hashed (reproducibility/MANIFEST.sha256). Pin to LF so
+# that Windows contributors with core.autocrlf=true do not silently rewrite them
+# to CRLF, which would break the CI manifest check and reviewer verification.
+*.csv text eol=lf
