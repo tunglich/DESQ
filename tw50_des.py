@@ -79,10 +79,12 @@ except Exception:
 import joblib
 
 from tw50_flood import (
+    DEFAULT_SEED,
     REPO_ROOT,
     TEST_END,
     TEST_START,
     TRAIN_END,
+    _set_global_seed,
     load_top50_ids,
     parse_stock_ids,
 )
@@ -233,7 +235,7 @@ def find_best_rf(X_train: pd.DataFrame, y_train: pd.Series,
 
 
 def train_or_load_des(stock_id: str, X_train: pd.DataFrame, y_train: pd.Series,
-                       force: bool) -> tuple[RandomForestClassifier, KNORAE, dict]:
+                       force: bool, random_state: int = 42) -> tuple[RandomForestClassifier, KNORAE, dict]:
     des_path = DES_MODEL_DIR / f'DES_{stock_id}.pkl'
     rf_path = DES_MODEL_DIR / f'RF_{stock_id}.pkl'
     if not force and des_path.exists() and rf_path.exists():
@@ -246,7 +248,7 @@ def train_or_load_des(stock_id: str, X_train: pd.DataFrame, y_train: pd.Series,
             print(f'[{stock_id}] cache load failed ({err}); retraining.')
 
     print(f'[{stock_id}] fitting RandomForest ...')
-    base_clf = find_best_rf(X_train, y_train)
+    base_clf = find_best_rf(X_train, y_train, random_state=random_state)
     print(f'[{stock_id}] fitting KNORA-E ...')
     model = KNORAE(pool_classifiers=base_clf, k=10, DFP=True)
     model.fit(X_train.to_numpy(), y_train.to_numpy())
@@ -435,7 +437,8 @@ def plot_backtest(stock_id: str, equity: pd.DataFrame, out_path: Path) -> None:
 
 def run_one(stock_id: str, *, threshold: float, long: int, short: int,
              s2l: int, l2s: int, force: bool,
-             strict_oof: bool = False) -> dict:
+             strict_oof: bool = False,
+             seed: int = DEFAULT_SEED) -> dict:
     print(f'\n=== DES: {stock_id} ===')
     X_all, source_modes = load_aspect_predictions(stock_id)
     y_all = load_labels(stock_id, X_all.index)
@@ -461,7 +464,8 @@ def run_one(stock_id: str, *, threshold: float, long: int, short: int,
     refit = force or strict_oof
     if strict_oof and not force:
         print(f'[{stock_id}] strict_oof=True -> forcing RF + KNORA-E refit against OOF DES-train')
-    base_clf, model, paths = train_or_load_des(stock_id, X_train, y_train, force=refit)
+    base_clf, model, paths = train_or_load_des(stock_id, X_train, y_train, force=refit,
+                                                random_state=seed)
 
     prob_des = pd.Series(
         model.predict_proba(X_all.to_numpy())[:, 1],
@@ -531,10 +535,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument('--strict-oof', action='store_true',
                    help='Abort if any aspect prediction CSV is not tagged '
                         "source='oof' on the DES-train slice (leakage guard).")
+    p.add_argument('--seed', type=int, default=DEFAULT_SEED,
+                   help='Global RNG seed; also threaded into RandomForest random_state.')
     p.add_argument('--no-show', action='store_true',
                    help='(kept for CLI compat; plots are always saved to disk without display)')
     args = p.parse_args(argv)
 
+    _set_global_seed(args.seed)
     stock_ids = parse_stock_ids(args.stock_ids, args.top50)
     print(f'[PLAN] DES over stocks={stock_ids}, threshold={args.threshold}, '
           f'long={args.long}, short={args.short}, s2l={args.s2l}, l2s={args.l2s}, '
@@ -548,7 +555,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                           long=args.long, short=args.short,
                           s2l=args.s2l, l2s=args.l2s,
                           force=args.force,
-                          strict_oof=args.strict_oof)
+                          strict_oof=args.strict_oof,
+                          seed=args.seed)
             rows.append(row)
         except Exception as exc:  # noqa: BLE001
             print(f'[FAIL] {sid}: {exc}')

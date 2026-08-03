@@ -106,6 +106,30 @@ LOOKBACK_CHOICES = (5, 10, 20, 30, 40, 60)
 
 
 # =============================================================================
+# Global seed
+# =============================================================================
+
+DEFAULT_SEED = int(os.getenv('DESQ_SEED', '42'))
+
+
+def _set_global_seed(seed: int) -> None:
+    """Set PYTHONHASHSEED, python `random`, NumPy, TensorFlow and enable op determinism."""
+    import random as _random
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    _random.seed(seed)
+    np.random.seed(seed)
+    try:
+        tf.keras.utils.set_random_seed(seed)
+    except Exception as err:
+        print(f'[SEED] tf.keras.utils.set_random_seed failed: {err}')
+    try:
+        tf.config.experimental.enable_op_determinism()
+    except Exception as err:
+        print(f'[SEED] enable_op_determinism failed: {err}')
+    print(f'[SEED] global seed set to {seed}')
+
+
+# =============================================================================
 # GPU setup
 # =============================================================================
 
@@ -729,7 +753,8 @@ def prepare_windowed_data(processed: pd.DataFrame):
     return X_by_lookback, y_by_lookback
 
 
-def run_search(aspect: str, stock_id: str, trials: int, epochs: int, batch_size: int) -> dict:
+def run_search(aspect: str, stock_id: str, trials: int, epochs: int, batch_size: int,
+               seed: int = DEFAULT_SEED) -> dict:
     print(f'\n=== FLOOD SEARCH: stock={stock_id}, aspect={aspect} ===')
     processed = preprocess_features(aspect, stock_id)
     X_by_lookback, y_by_lookback = prepare_windowed_data(processed)
@@ -743,6 +768,7 @@ def run_search(aspect: str, stock_id: str, trials: int, epochs: int, batch_size:
         oracle=kt.oracles.BayesianOptimizationOracle(
             objective=kt.Objective('val_recall_score', direction='max'),
             max_trials=trials,
+            seed=seed,
         ),
         hypermodel=hypermodel,
         directory=str(tuner_dir),
@@ -818,8 +844,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument('--trials', type=int, default=12)
     p.add_argument('--epochs', type=int, default=60)
     p.add_argument('--batch-size', type=int, default=64)
+    p.add_argument('--seed', type=int, default=DEFAULT_SEED,
+                   help='Global RNG seed for PYTHONHASHSEED/random/numpy/tf and BayesianOptimizationOracle.')
     args = p.parse_args(argv)
 
+    _set_global_seed(args.seed)
     configure_gpu()
     stock_ids = parse_stock_ids(args.stock_ids, args.top50)
     aspects = parse_aspects(args.aspect)
@@ -828,7 +857,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     for sid in stock_ids:
         for aspect in aspects:
             try:
-                run_search(aspect, sid, args.trials, args.epochs, args.batch_size)
+                run_search(aspect, sid, args.trials, args.epochs, args.batch_size,
+                           seed=args.seed)
             except Exception as exc:  # noqa: BLE001
                 print(f'[FAIL] {sid}/{aspect}: {exc}')
                 import traceback

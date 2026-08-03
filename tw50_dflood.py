@@ -66,6 +66,7 @@ from tw50_flood import (
     ARTIFACT_ROOT as FLOOD_ARTIFACT_ROOT,
     ASPECTS,
     CausalMask,
+    DEFAULT_SEED,
     FLOODING_GRID,
     FloodingModel,
     HYPERBAYES_DIR,
@@ -80,6 +81,7 @@ from tw50_flood import (
     WF_N_SPLITS,
     WF_VAL_RATIO,
     _mha_block,
+    _set_global_seed,
     build_windows,
     configure_gpu,
     load_top50_ids,
@@ -461,8 +463,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                    help='Emit out-of-fold DES-train predictions from an inner ATT '
                         'trained only on TRAIN_START..(DES_TRAIN_START - WF_GAP). '
                         'Recommended for leakage-free Stage-3 KNORA-E fitting.')
+    p.add_argument('--seed', type=int, default=DEFAULT_SEED,
+                   help='Global RNG seed for PYTHONHASHSEED/random/numpy/tf.')
     args = p.parse_args(argv)
 
+    _set_global_seed(args.seed)
     configure_gpu()
     stock_ids = parse_stock_ids(args.stock_ids, args.top50)
     aspects = parse_aspects(args.aspect)
