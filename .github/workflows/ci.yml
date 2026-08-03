@@ -38,13 +38,23 @@ jobs:
       - name: Verify shipped-data manifest (SHA-256)
         working-directory: ${{ steps.root.outputs.root }}
         run: |
+          set -x
+          pwd
+          ls -la | head -20
           if [ ! -f reproducibility/MANIFEST.sha256 ]; then
             echo "::error::reproducibility/MANIFEST.sha256 missing"
             exit 1
           fi
-          # Every shipped features/*, prices/*, tw50_top50.csv must match.
-          sha256sum -c reproducibility/MANIFEST.sha256 --quiet
           echo "manifest lines: $(wc -l < reproducibility/MANIFEST.sha256)"
+          head -3 reproducibility/MANIFEST.sha256
+          # Every shipped features/*, prices/*, tw50_top50.csv must match.
+          # Drop --quiet so any mismatch is named in the log.
+          sha256sum -c reproducibility/MANIFEST.sha256 > /tmp/manifest.log 2>&1 || {
+            echo "::error::manifest verification failed; first 30 mismatches:"
+            grep -E 'FAIL|WARNING' /tmp/manifest.log | head -30
+            exit 1
+          }
+          tail -1 /tmp/manifest.log
 
       - uses: actions/setup-python@v5
         with:
