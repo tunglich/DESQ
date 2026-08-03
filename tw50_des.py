@@ -457,7 +457,11 @@ def run_one(stock_id: str, *, threshold: float, long: int, short: int,
     if len(X_test) < 20:
         raise RuntimeError(f'{stock_id}: DES test slice too short ({len(X_test)})')
 
-    base_clf, model, paths = train_or_load_des(stock_id, X_train, y_train, force=force)
+    # Cached RF/KNORAE may have been fit against a previous in-sample DES-train slice.
+    refit = force or strict_oof
+    if strict_oof and not force:
+        print(f'[{stock_id}] strict_oof=True -> forcing RF + KNORA-E refit against OOF DES-train')
+    base_clf, model, paths = train_or_load_des(stock_id, X_train, y_train, force=refit)
 
     prob_des = pd.Series(
         model.predict_proba(X_all.to_numpy())[:, 1],
