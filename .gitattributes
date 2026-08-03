@@ -1,0 +1,4 @@
+# Preserve LF for files consumed by sha256sum -c and bash scripts on CI runners.
+reproducibility/MANIFEST.sha256 text eol=lf
+us/baselines/run_all_baselines.sh text eol=lf
+.github/workflows/*.yml text eol=lf

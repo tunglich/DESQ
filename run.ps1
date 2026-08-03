@@ -39,7 +39,7 @@ param(
                  'full-2330', 'full-flagships', 'full-top50',
                  'seed-sweep',
                  'rerun-baselines', 'verify-baselines', 'snapshot-baselines',
-                 'verify-prices', 'hash-shipped', 'repro',
+                 'verify-prices', 'hash-shipped', 'repro', 'manifest-check',
                  'figures', 'figures-us', 'tables',
                  'clean-smoke', 'clean-artifacts', 'clean-all')]
     [string]$Target = 'help',
@@ -136,6 +136,7 @@ switch ($Target) {
 
     'verify-prices' { Invoke-Cmd "$py reproducibility/verify_public_prices.py --stock-ids $Stock" }
     'hash-shipped'  { Invoke-Cmd "$py reproducibility/hash_shipped.py" }
+    'manifest-check' { Invoke-Cmd "$py reproducibility/check_manifest.py" }
     'repro' {
         Invoke-Cmd "$py reproducibility/hash_shipped.py"
         Invoke-Cmd "$py reproducibility/verify_public_prices.py --stock-ids $Stock"

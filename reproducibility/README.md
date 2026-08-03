@@ -13,8 +13,9 @@ Yahoo Finance in one command.
 
 | script                              | proves                                                                                                     |
 | ---                                 | ---                                                                                                        |
+| `check_manifest.py`                 | Every shipped `features/*.csv`, `prices/*.csv`, `tw50_top50.csv` matches the SHA-256 pinned in `MANIFEST.sha256`. Also enforced in CI (`ci.yml -> fast-checks`) — any post-hoc edit turns the badge red. |
 | `verify_public_prices.py`           | The shipped `prices/*.csv` are byte-identical (up to split adjustments) to Yahoo Finance — no fabrication. |
-| `hash_shipped.py`                   | The shipped `features/*.csv` and `tw50_top50.csv` match the SHA-256 prefixes pinned in `EXPECTED_OUTPUT.md`. |
+| `hash_shipped.py`                   | Prints the SHA-256 fingerprints of a small (7-file) fast-check subset in a human-readable table.           |
 | `EXPECTED_OUTPUT.md`                | The `make smoke-oof` / `make seed-sweep` outputs at commit HEAD fall inside pinned tolerance bands.        |
 | `../us/baselines/verify_baselines.py` | The shipped US baseline CSVs equal a fresh baseline rerun (see B5, requires US data).                    |
 
@@ -24,7 +25,11 @@ Yahoo Finance in one command.
 # 0. install (once)
 python -m pip install -r requirements-lock.txt
 
-# 1. cross-check shipped prices against Yahoo Finance
+# 1. verify every shipped features/*, prices/*, tw50_top50.csv (252 files)
+python reproducibility/check_manifest.py
+# expect: MANIFEST OK: 252 files verified against reproducibility/MANIFEST.sha256
+
+# 2. cross-check shipped prices against Yahoo Finance
 python reproducibility/verify_public_prices.py --stock-ids 2330
 # expect: PASS 2330: n=1752, median_ratio=1.0000, max_rel_dev=0.00e+00
 
@@ -56,10 +61,11 @@ $env:DESQ_SEED = '42'
 
 ## What a FAIL means
 
+- `check_manifest.py` FAIL — a shipped `features/*.csv`, `prices/*.csv`, or
+  `tw50_top50.csv` was edited after publication. The CI badge on the main
+  README turns red the moment this happens.
 - `verify_public_prices.py` FAIL — the shipped `prices/*.csv` was edited
   after publication. Falsifies the OHLCV inputs directly.
-- `hash_shipped.py` prefix mismatch — a shipped feature file was changed
-  post-hoc. Recompute the full pipeline and update `EXPECTED_OUTPUT.md`.
 - Stage 3 `total_ret_stock` ≠ 2.002 — the test window shifted; a data
   pipeline change slipped in. `n_test_days ≠ 540` has the same meaning.
 - Stage 3 `total_ret_model` outside `[0.17, 0.77]` for seed=42 — either

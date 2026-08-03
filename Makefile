@@ -48,7 +48,7 @@ SWEEP_STAGES  ?= 3
         prices figures figures-us tables preflight lint \
         seed-sweep \
         rerun-baselines verify-baselines snapshot-baselines \
-        verify-prices hash-shipped repro \
+        verify-prices hash-shipped manifest-check repro \
         clean-smoke clean-artifacts clean-all
 
 help:
@@ -130,6 +130,10 @@ verify-prices:
 
 hash-shipped:
 	$(PY) reproducibility/hash_shipped.py
+
+# Enforce shipped-data integrity (CI + local pre-push check).
+manifest-check:
+	$(PY) reproducibility/check_manifest.py
 
 # One-shot reviewer path: fingerprints -> public-price cross-check -> smoke.
 repro: hash-shipped verify-prices smoke-oof

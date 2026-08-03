@@ -1,5 +1,7 @@
 # TW-50 Attention + Flooding + DES Pipeline
 
+[![CI](https://github.com/tunglich/DESQ/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tunglich/DESQ/actions/workflows/ci.yml)
+
 > **Paper snapshot**: this repository accompanies the IEEE Access submission *“Dynamic-Flooding Transformer Ensembles for Reinforcement-Learning-Based Equity Market Timing”*. The exact code state used in the paper is tagged as [`v1.0-ieeeaccess-submission`](https://github.com/tunglich/DESQ/releases). The `main` branch may contain post-submission changes; check out the tag for byte-exact reproduction.
 
 A market-timing framework for the TWSE Top-50 constituents that stacks:

@@ -1,0 +1,175 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------
+  # Fast falsification checks (~3 min): lint + tamper-proof + prices.
+  # Runs on every push and PR.
+  # ---------------------------------------------------------------
+  fast-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Locate pipeline root
+        id: root
+        run: |
+          if [ -d tw50_pipeline ]; then
+            echo "root=tw50_pipeline" >> "$GITHUB_OUTPUT"
+          else
+            echo "root=." >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify shipped-data manifest (SHA-256)
+        working-directory: ${{ steps.root.outputs.root }}
+        run: |
+          if [ ! -f reproducibility/MANIFEST.sha256 ]; then
+            echo "::error::reproducibility/MANIFEST.sha256 missing"
+            exit 1
+          fi
+          # Every shipped features/*, prices/*, tw50_top50.csv must match.
+          sha256sum -c reproducibility/MANIFEST.sha256 --quiet
+          echo "manifest lines: $(wc -l < reproducibility/MANIFEST.sha256)"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: ${{ steps.root.outputs.root }}/requirements-lock.txt
+
+      # Only install what the fast checks need — skip TF/keras-tuner/deslib
+      # to keep this job under 3 min. The smoke job installs the full lock.
+      - name: Install lightweight deps
+        working-directory: ${{ steps.root.outputs.root }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install "pandas>=2.0" "numpy>=1.26" "yfinance>=0.2"
+
+      - name: Lint (Python syntax on 3 pipeline modules + fetch_prices)
+        working-directory: ${{ steps.root.outputs.root }}
+        run: |
+          python -c "import ast; \
+            [ast.parse(open(f, encoding='utf-8').read()) \
+             for f in ['tw50_flood.py','tw50_dflood.py','tw50_des.py','fetch_prices.py', \
+                       'reproducibility/verify_public_prices.py', \
+                       'reproducibility/hash_shipped.py', \
+                       'us/baselines/verify_baselines.py']]; \
+            print('LINT OK')"
+
+      - name: Cross-check shipped prices vs yfinance (2330)
+        working-directory: ${{ steps.root.outputs.root }}
+        run: |
+          python reproducibility/verify_public_prices.py --stock-ids 2330 --tol 0.01
+
+      - name: Upload verify-prices report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-prices-report
+          path: ${{ steps.root.outputs.root }}/reproducibility/verify_public_prices.csv
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------
+  # End-to-end smoke (~15-20 min): Stage 1 -> 2 -> 3 on 2330, seed=42.
+  # Slow because pip has to fetch TF + keras + deslib on cold cache.
+  # Runs only on push to main and on manual dispatch to keep PR feedback fast.
+  # ---------------------------------------------------------------
+  smoke:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: fast-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Locate pipeline root
+        id: root
+        run: |
+          if [ -d tw50_pipeline ]; then
+            echo "root=tw50_pipeline" >> "$GITHUB_OUTPUT"
+          else
+            echo "root=." >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: ${{ steps.root.outputs.root }}/requirements-lock.txt
+
+      - name: Install pinned dependencies
+        working-directory: ${{ steps.root.outputs.root }}
+        run: |
+          python -m pip install --upgrade pip
+          # CI runners have no GPU; the CPU TF wheel is what the lock resolves to.
+          pip install -r requirements-lock.txt
+
+      - name: Preflight (TF / sklearn / deslib visible?)
+        working-directory: ${{ steps.root.outputs.root }}
+        run: |
+          make preflight
+
+      - name: Run 3-stage smoke on 2330 (seed=42, --des-oof)
+        working-directory: ${{ steps.root.outputs.root }}
+        env:
+          DESQ_SEED: '42'
+          TF_CPP_MIN_LOG_LEVEL: '2'
+        run: |
+          make smoke-oof STOCK=2330 SMOKE_TRIALS=2 SMOKE_EPOCHS=3 SMOKE_BATCH=128
+
+      - name: Assert Stage-3 summary sanity
+        working-directory: ${{ steps.root.outputs.root }}
+        run: |
+          python - <<'PY'
+          import sys
+          import pandas as pd
+          from pathlib import Path
+          fp = Path('artifacts/des/backtest/summary.csv')
+          if not fp.exists():
+              print(f'::error::summary.csv missing at {fp}')
+              sys.exit(1)
+          df = pd.read_csv(fp)
+          row = df[df['stock_id'].astype(str) == '2330']
+          if row.empty:
+              print(f'::error::no 2330 row in summary.csv')
+              sys.exit(1)
+          n = int(row.iloc[0]['n_test_days'])
+          rs = float(row.iloc[0]['total_ret_stock'])
+          rm = float(row.iloc[0]['total_ret_model'])
+          print(f'2330: n_test_days={n}, total_ret_stock={rs:.4f}, total_ret_model={rm:.4f}')
+          # These bounds mirror reproducibility/EXPECTED_OUTPUT.md sec 2.
+          assert n == 540, f'expected n_test_days=540, got {n}'
+          assert abs(rs - 2.002) < 0.05, f'expected total_ret_stock~=2.002, got {rs}'
+          # total_ret_model varies more with reduced smoke trials; keep loose.
+          assert -1.0 < rm < 3.0, f'total_ret_model={rm} outside sanity range'
+          print('SUMMARY OK')
+          PY
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-artifacts
+          path: |
+            ${{ steps.root.outputs.root }}/artifacts/des/backtest/summary.csv
+            ${{ steps.root.outputs.root }}/artifacts/des/backtest/*.png
+            ${{ steps.root.outputs.root }}/artifacts/des/backtest/*.csv
+          if-no-files-found: warn
