@@ -40,10 +40,13 @@ BATCH         ?= 64
 SMOKE_TRIALS  ?= 2
 SMOKE_EPOCHS  ?= 3
 SMOKE_BATCH   ?= 128
+SWEEP_SEEDS   ?= 42,123,456,789,2024
+SWEEP_STAGES  ?= 3
 
 .PHONY: help smoke smoke-oof full-2330 full-flagships full-top50 \
         stage1 stage2 stage2-oof stage3 stage3-strict \
         prices figures figures-us tables preflight lint \
+        seed-sweep \
         clean-smoke clean-artifacts clean-all
 
 help:
@@ -53,6 +56,7 @@ help:
 	@echo "    make smoke        # 5-min plumbing check on stock $(STOCK)"
 	@echo "    make smoke-oof    # smoke + --des-oof (leakage-free DES fit)"
 	@echo "    make full-2330    # production settings for TSMC"
+	@echo "    make seed-sweep   # multi-seed Stage 3 sweep -> mean +/- std CSV"
 	@echo "    make figures      # regenerate paper Fig 17 from shipped CSVs"
 	@echo "    make preflight    # environment sanity checks"
 	@echo ""
@@ -93,6 +97,12 @@ stage3:
 # Aborts if any aspect's DES-train slice was produced in-sample.
 stage3-strict:
 	$(PY) tw50_des.py    --stock-ids $(STOCK) --no-show --strict-oof
+
+# ---------------------------------------------------------------------------
+# Seed sweep (multi-seed backtest -> mean +/- std for paper Table)
+# ---------------------------------------------------------------------------
+seed-sweep:
+	$(PY) scripts/run_seed_sweep.py --stock-ids $(STOCK) --seeds $(SWEEP_SEEDS) --stages $(SWEEP_STAGES)
 
 # ---------------------------------------------------------------------------
 # End-to-end recipes

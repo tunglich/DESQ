@@ -37,6 +37,7 @@ param(
                  'prices', 'stage1', 'stage2', 'stage2-oof', 'stage3', 'stage3-strict',
                  'smoke', 'smoke-oof',
                  'full-2330', 'full-flagships', 'full-top50',
+                 'seed-sweep',
                  'figures', 'figures-us', 'tables',
                  'clean-smoke', 'clean-artifacts', 'clean-all')]
     [string]$Target = 'help',
@@ -49,7 +50,9 @@ param(
     [int]$Batch = 64,
     [int]$SmokeTrials = 2,
     [int]$SmokeEpochs = 3,
-    [int]$SmokeBatch = 128
+    [int]$SmokeBatch = 128,
+    [string]$SweepSeeds = '42,123,456,789,2024',
+    [string]$SweepStages = '3'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -78,6 +81,7 @@ TW-50 DESQ run.ps1 -- Windows PowerShell task runner
     full-2330         production settings for TSMC
     full-flagships    TSMC + MediaTek
     full-top50        complete TW-50 batch
+    seed-sweep        multi-seed Stage 3 sweep -> mean +/- std CSV
 
   Individual stages:
     prices            fetch OHLCV for -Stock
@@ -119,6 +123,10 @@ switch ($Target) {
     'stage2-oof'    { Invoke-Cmd "$py tw50_dflood.py --stock-ids $Stock --aspect all --epochs $DfloodEpochs --batch-size $Batch --des-oof" }
     'stage3'         { Invoke-Cmd "$py tw50_des.py    --stock-ids $Stock --no-show" }
     'stage3-strict' { Invoke-Cmd "$py tw50_des.py    --stock-ids $Stock --no-show --strict-oof" }
+
+    'seed-sweep' {
+        Invoke-Cmd "$py scripts/run_seed_sweep.py --stock-ids $Stock --seeds $SweepSeeds --stages $SweepStages"
+    }
 
     'smoke' {
         Invoke-Cmd "$py fetch_prices.py --stock-ids $Stock"

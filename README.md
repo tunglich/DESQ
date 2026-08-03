@@ -204,6 +204,7 @@ Use the shipped task runners to avoid copy-pasting stage-by-stage:
 make smoke        # in-sample DES-fit (legacy behaviour)
 make smoke-oof    # OOF DES-fit (leakage-free; recommended)
 make full-2330    # production settings for TSMC (~20 min on GPU, uses --des-oof)
+make seed-sweep   # multi-seed Stage 3 sweep -> mean +/- std CSV (§IV.H evidence)
 ```
 
 ```powershell
@@ -211,9 +212,28 @@ make full-2330    # production settings for TSMC (~20 min on GPU, uses --des-oof
 .\run.ps1 smoke
 .\run.ps1 smoke-oof
 .\run.ps1 full-2330
+.\run.ps1 seed-sweep
 ```
 
 Run `make help` or `.\run.ps1 help` for the full target list, and `make preflight` / `.\run.ps1 preflight` for environment sanity checks.
+
+### Seed reproducibility
+
+All three stages accept `--seed N` (default `42`, or set `DESQ_SEED` env var). The
+global RNG seed is threaded into `PYTHONHASHSEED`, `random`, `numpy`,
+`tf.keras.utils.set_random_seed`, `tf.config.experimental.enable_op_determinism()`,
+`kt.oracles.BayesianOptimizationOracle(seed=...)`, and
+`RandomForestClassifier(random_state=...)`. Use `scripts/run_seed_sweep.py` to
+regenerate the multi-seed mean ± std evidence CSV expected in §IV.H:
+
+```bash
+python scripts/run_seed_sweep.py --stock-ids 2330,2454 \
+    --seeds 42,123,456,789,2024 --stages 3
+# -> artifacts/seed_sweep/per_run.csv + aggregate.csv
+```
+
+Pass `--stages 23` or `--stages 123` to also retrain Stage 2 / Stages 1+2 per seed
+(slower; used when reviewers question tuner determinism).
 
 ### Explicit commands (equivalent to `make smoke`)
 
