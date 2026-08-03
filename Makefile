@@ -48,6 +48,7 @@ SWEEP_STAGES  ?= 3
         prices figures figures-us tables preflight lint \
         seed-sweep \
         rerun-baselines verify-baselines snapshot-baselines \
+        verify-prices hash-shipped repro \
         clean-smoke clean-artifacts clean-all
 
 help:
@@ -58,6 +59,7 @@ help:
 	@echo "    make smoke-oof    # smoke + --des-oof (leakage-free DES fit)"
 	@echo "    make full-2330    # production settings for TSMC"
 	@echo "    make seed-sweep   # multi-seed Stage 3 sweep -> mean +/- std CSV"
+	@echo "    make repro        # reviewer path: hashes + yfinance check + smoke"
 	@echo "    make figures      # regenerate paper Fig 17 from shipped CSVs"
 	@echo "    make preflight    # environment sanity checks"
 	@echo ""
@@ -119,6 +121,18 @@ verify-baselines:
 # Just refresh the shipped snapshot (no rerun, no verify).
 snapshot-baselines:
 	bash us/baselines/run_all_baselines.sh --verify-only --force-snapshot || true
+
+# ---------------------------------------------------------------------------
+# Reviewer reproducibility kit (public-data checks, no proprietary access)
+# ---------------------------------------------------------------------------
+verify-prices:
+	$(PY) reproducibility/verify_public_prices.py --stock-ids $(STOCK)
+
+hash-shipped:
+	$(PY) reproducibility/hash_shipped.py
+
+# One-shot reviewer path: fingerprints -> public-price cross-check -> smoke.
+repro: hash-shipped verify-prices smoke-oof
 
 # ---------------------------------------------------------------------------
 # End-to-end recipes

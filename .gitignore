@@ -58,3 +58,5 @@ us/backtest_portfolio_US/*.pkl
 # Local env
 us/.venv/
 us/.venv-1/
+
+reproducibility/verify_public_prices.csv

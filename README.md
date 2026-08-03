@@ -258,6 +258,28 @@ worst-numerical-column diff, and exits `1` on any drift. This gives reviewers a
 one-command falsifiable check that the shipped baselines are not hand-tuned
 snapshots.
 
+### Reviewer reproducibility kit (public data only, 10 min CPU)
+
+`reproducibility/` gives a reviewer without Cmoney access a falsifiable
+end-to-end check on the TW50 pipeline. See
+[`reproducibility/README.md`](reproducibility/README.md) for the full
+walkthrough; the one-command path is:
+
+```bash
+make repro   # hash-shipped + verify-prices + smoke-oof, seed=42
+```
+
+Individual pieces:
+
+* `make hash-shipped` — prints SHA-256 of the shipped `tw50_top50.csv`,
+  `prices/2330.csv`, and 5 aspect features. Cross-check against the fingerprints
+  pinned in [`reproducibility/EXPECTED_OUTPUT.md`](reproducibility/EXPECTED_OUTPUT.md).
+* `make verify-prices` — downloads TWSE OHLCV from Yahoo Finance for the
+  shipped tickers and asserts the shipped `prices/*.csv` differ only by a
+  clean split multiplier (proves the prices are not fabricated).
+* `EXPECTED_OUTPUT.md` — pins the expected `summary.csv` columns, tolerance
+  bands for `total_ret_model`, and the multi-seed `aggregate.csv` values.
+
 ### Explicit commands (equivalent to `make smoke`)
 
 ```powershell

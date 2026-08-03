@@ -39,6 +39,7 @@ param(
                  'full-2330', 'full-flagships', 'full-top50',
                  'seed-sweep',
                  'rerun-baselines', 'verify-baselines', 'snapshot-baselines',
+                 'verify-prices', 'hash-shipped', 'repro',
                  'figures', 'figures-us', 'tables',
                  'clean-smoke', 'clean-artifacts', 'clean-all')]
     [string]$Target = 'help',
@@ -132,6 +133,14 @@ switch ($Target) {
     'rerun-baselines'    { Invoke-Cmd "bash us/baselines/run_all_baselines.sh" }
     'verify-baselines'   { Invoke-Cmd "$py us/baselines/verify_baselines.py" }
     'snapshot-baselines' { Invoke-Cmd "bash us/baselines/run_all_baselines.sh --verify-only --force-snapshot" }
+
+    'verify-prices' { Invoke-Cmd "$py reproducibility/verify_public_prices.py --stock-ids $Stock" }
+    'hash-shipped'  { Invoke-Cmd "$py reproducibility/hash_shipped.py" }
+    'repro' {
+        Invoke-Cmd "$py reproducibility/hash_shipped.py"
+        Invoke-Cmd "$py reproducibility/verify_public_prices.py --stock-ids $Stock"
+        & $PSCommandPath -Target 'smoke-oof' -Stock $Stock
+    }
 
     'smoke' {
         Invoke-Cmd "$py fetch_prices.py --stock-ids $Stock"
