@@ -47,6 +47,7 @@ SWEEP_STAGES  ?= 3
         stage1 stage2 stage2-oof stage3 stage3-strict \
         prices figures figures-us tables preflight lint \
         seed-sweep \
+        rerun-baselines verify-baselines snapshot-baselines \
         clean-smoke clean-artifacts clean-all
 
 help:
@@ -103,6 +104,21 @@ stage3-strict:
 # ---------------------------------------------------------------------------
 seed-sweep:
 	$(PY) scripts/run_seed_sweep.py --stock-ids $(STOCK) --seeds $(SWEEP_SEEDS) --stages $(SWEEP_STAGES)
+
+# ---------------------------------------------------------------------------
+# Baseline reproducibility (US market: DSR-Yang, MACE + combined figure)
+# ---------------------------------------------------------------------------
+# Snapshot shipped CSVs, rerun baselines, then diff shipped vs rerun.
+rerun-baselines:
+	bash us/baselines/run_all_baselines.sh
+
+# Diff-only pass: assumes _shipped_snapshot/ exists and rerun outputs are in place.
+verify-baselines:
+	$(PY) us/baselines/verify_baselines.py
+
+# Just refresh the shipped snapshot (no rerun, no verify).
+snapshot-baselines:
+	bash us/baselines/run_all_baselines.sh --verify-only --force-snapshot || true
 
 # ---------------------------------------------------------------------------
 # End-to-end recipes

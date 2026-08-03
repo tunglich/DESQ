@@ -38,6 +38,7 @@ param(
                  'smoke', 'smoke-oof',
                  'full-2330', 'full-flagships', 'full-top50',
                  'seed-sweep',
+                 'rerun-baselines', 'verify-baselines', 'snapshot-baselines',
                  'figures', 'figures-us', 'tables',
                  'clean-smoke', 'clean-artifacts', 'clean-all')]
     [string]$Target = 'help',
@@ -127,6 +128,10 @@ switch ($Target) {
     'seed-sweep' {
         Invoke-Cmd "$py scripts/run_seed_sweep.py --stock-ids $Stock --seeds $SweepSeeds --stages $SweepStages"
     }
+
+    'rerun-baselines'    { Invoke-Cmd "bash us/baselines/run_all_baselines.sh" }
+    'verify-baselines'   { Invoke-Cmd "$py us/baselines/verify_baselines.py" }
+    'snapshot-baselines' { Invoke-Cmd "bash us/baselines/run_all_baselines.sh --verify-only --force-snapshot" }
 
     'smoke' {
         Invoke-Cmd "$py fetch_prices.py --stock-ids $Stock"

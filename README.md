@@ -235,6 +235,29 @@ python scripts/run_seed_sweep.py --stock-ids 2330,2454 \
 Pass `--stages 23` or `--stages 123` to also retrain Stage 2 / Stages 1+2 per seed
 (slower; used when reviewers question tuner determinism).
 
+### Baseline reproducibility (US market: DSR-Yang, MACE, combined)
+
+The `us/baselines/` tree ships CSV outputs from the DSR-Yang and MACE baselines
+across `dow30 / sp100 / ndx100`, plus the joint `combined_comparison.py`
+summary. Reviewers with the required US price data (default `d:\US_stock`) can
+regenerate every CSV and diff it against what we ship:
+
+```bash
+# 1) One-shot: snapshot shipped CSVs, rerun all baselines, diff (tol=1e-6).
+make rerun-baselines
+# or:  bash us/baselines/run_all_baselines.sh
+
+# 2) Diff-only (uses an existing us/baselines/_shipped_snapshot/):
+make verify-baselines
+```
+
+`verify_baselines.py` walks `_shipped_snapshot/` recursively, matches every
+`metrics.csv`, `predictions.csv`, `selections.csv`, `equity_*.csv`,
+`combined_stats.csv`, `*_comparison.csv`, prints a per-file `PASS/FAIL` with the
+worst-numerical-column diff, and exits `1` on any drift. This gives reviewers a
+one-command falsifiable check that the shipped baselines are not hand-tuned
+snapshots.
+
 ### Explicit commands (equivalent to `make smoke`)
 
 ```powershell
