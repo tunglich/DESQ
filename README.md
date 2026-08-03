@@ -1,8 +1,9 @@
 # TW-50 Attention + Flooding + DES Pipeline
 
 [![CI](https://github.com/tunglich/DESQ/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tunglich/DESQ/actions/workflows/ci.yml)
+[![DOI](https://zenodo.org/badge/DOI/pending.svg)](https://doi.org/pending) <!-- replace with real DOI after Zenodo mints it -->
 
-> **Paper snapshot**: this repository accompanies the IEEE Access submission *“Dynamic-Flooding Transformer Ensembles for Reinforcement-Learning-Based Equity Market Timing”*. The exact code state used in the paper is tagged as [`v1.0-ieeeaccess-submission`](https://github.com/tunglich/DESQ/releases). The `main` branch may contain post-submission changes; check out the tag for byte-exact reproduction.
+> **Paper snapshot**: this repository accompanies the IEEE Access submission *"Dynamic-Flooding Transformer Ensembles for Reinforcement-Learning-Based Equity Market Timing"*. The exact code state used in the paper is tagged as [`v1.0-desq`](https://github.com/tunglich/DESQ/releases/tag/v1.0-desq); that tag is archived on Zenodo with a persistent DOI (see [How to cite](#how-to-cite)). The `main` branch may contain post-submission changes; check out the tag for byte-exact reproduction.
 
 A market-timing framework for the TWSE Top-50 constituents that stacks:
 
@@ -385,6 +386,36 @@ python -c "from pathlib import Path; ids = ['2330','2454']; missing = [s for s i
 ## Optional — DQN benchmark using DES output
 
 The `dqn/` subfolder contains a Deep Q-Network trader adapted from `tunglich/Market-Timing-DQN`, using the DESQ pipeline output as the `<DES>` feature. See [dqn/README.md](dqn/README.md) for its own quick-start.
+
+## How to cite
+
+Please cite the specific release DOI rather than the head of the main branch,
+so reviewers can reproduce the exact bytes you ran against. The `v1.0-desq`
+tag is the reviewer snapshot; every future release will mint a fresh Zenodo
+DOI while the "concept DOI" links them all.
+
+**BibTeX** (replace `10.5281/zenodo.XXXXXXX` with the DOI printed on the
+Zenodo record once the release is minted):
+
+```bibtex
+@software{chen_desq_2026,
+  author    = {Chen, Tung-Li},
+  title     = {DESQ: Dynamic Ensemble Selection for Quantitative
+               Stock Selection (v1.0-desq)},
+  year      = {2026},
+  publisher = {Zenodo},
+  version   = {v1.0-desq},
+  doi       = {10.5281/zenodo.XXXXXXX},
+  url       = {https://doi.org/10.5281/zenodo.XXXXXXX},
+  note      = {Reviewer reproducibility kit for the IEEE Access
+               submission; see reproducibility/README.md}
+}
+```
+
+Machine-readable metadata lives in [CITATION.cff](CITATION.cff) (parsed by
+GitHub's "Cite this repository" button) and [.zenodo.json](.zenodo.json)
+(consumed by Zenodo when the GitHub release is archived). Update the DOI
+placeholder in both files after Zenodo mints the identifier.
 
 ## License
 

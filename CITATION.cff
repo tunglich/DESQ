@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+title: "DESQ: Dynamic Ensemble Selection for Quantitative Stock Selection"
+message: "If you use this software or the reviewer reproducibility kit, please cite the specific release DOI (see below) rather than the head of the main branch."
+type: software
+authors:
+  - given-names: "Tung-Li"
+    family-names: "Chen"
+    affiliation: "National Taiwan University"
+    # Add ORCID once available; changes are non-breaking for the DOI record.
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+repository-code: "https://github.com/tunglich/DESQ"
+license: MIT
+version: "1.0-desq"
+date-released: "2026-08-03"
+# The DOI below is minted automatically by Zenodo when the v1.0-desq release
+# is published on GitHub. Replace <TO_BE_ASSIGNED_BY_ZENODO> with the string
+# Zenodo prints (e.g. "10.5281/zenodo.1234567") in the follow-up commit; the
+# release itself is immutable so the citation remains valid.
+identifiers:
+  - type: doi
+    value: "<TO_BE_ASSIGNED_BY_ZENODO>"
+    description: "Concept + version DOI for the v1.0-desq reviewer snapshot."
+keywords:
+  - dynamic-ensemble-selection
+  - deslib
+  - quantitative-finance
+  - reproducible-research
+  - stock-selection
+  - tw50
+abstract: >-
+  DESQ is the reference implementation of the DES-based quantitative
+  stock-selection pipeline used in the IEEE Access submission.
+  The v1.0-desq release ships a full reviewer reproducibility kit:
+  SHA-256 fingerprints of the shipped Taiwan-50 features, a yfinance
+  cross-check for the 2330 canary prices, a 3-stage smoke pipeline, and
+  a GitHub Actions workflow that re-runs the falsifiable checks on every
+  push (see reproducibility/README.md).
