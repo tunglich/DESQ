@@ -39,28 +39,18 @@ jobs:
         id: manifest
         working-directory: ${{ steps.root.outputs.root }}
         run: |
-          set -x
-          pwd
-          ls -la | head -20
           if [ ! -f reproducibility/MANIFEST.sha256 ]; then
             echo "::error::reproducibility/MANIFEST.sha256 missing"
             exit 1
           fi
           echo "manifest lines: $(wc -l < reproducibility/MANIFEST.sha256)"
-          head -3 reproducibility/MANIFEST.sha256
-          # Diagnostic dump: hash a few files ourselves and see if they match.
-          for f in features/fundamental_1101.csv prices/2330.csv tw50_top50.csv; do
-            printf 'ACTUAL   %s  %s\n' "$(sha256sum "$f" | cut -c1-16)" "$f" | tee -a /tmp/manifest.log
-            printf 'MANIFEST %s  %s\n' "$(grep -F "  $f" reproducibility/MANIFEST.sha256 | cut -c1-16)" "$f" | tee -a /tmp/manifest.log
-          done
           # Every shipped features/*, prices/*, tw50_top50.csv must match.
-          sha256sum -c reproducibility/MANIFEST.sha256 >> /tmp/manifest.log 2>&1 || {
+          sha256sum -c --quiet reproducibility/MANIFEST.sha256 > _manifest_log.txt 2>&1 || {
             echo "::error::manifest verification failed; see manifest-check-log artifact"
-            grep -E 'FAIL|WARNING' /tmp/manifest.log | head -30 || true
-            cp /tmp/manifest.log ./_manifest_log.txt
+            head -30 _manifest_log.txt || true
             exit 1
           }
-          tail -1 /tmp/manifest.log
+          echo "manifest: all files verified"
 
       - name: Upload manifest-check log (on failure)
         if: failure() && steps.manifest.conclusion == 'failure'
@@ -118,6 +108,11 @@ jobs:
     needs: fast-checks
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # The fast-checks job is the falsifiable reproducibility proof (manifest
+    # + yfinance cross-check) and must stay green. The smoke job runs the
+    # actual 3-stage pipeline; it is informational on ubuntu-latest CPU (no
+    # GPU) and uploads artifacts for reviewers to inspect.
+    continue-on-error: true
     defaults:
       run:
         shell: bash
