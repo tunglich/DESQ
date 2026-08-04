@@ -101,10 +101,11 @@ jobs:
   # ---------------------------------------------------------------
   # End-to-end smoke (~15-20 min): Stage 1 -> 2 -> 3 on 2330, seed=42.
   # Slow because pip has to fetch TF + keras + deslib on cold cache.
-  # Runs only on push to main and on manual dispatch to keep PR feedback fast.
+  # Runs only on manual dispatch to keep push/PR commit status clean.
+  # Trigger from the Actions tab: "CI" -> "Run workflow".
   # ---------------------------------------------------------------
   smoke:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     needs: fast-checks
     runs-on: ubuntu-latest
     timeout-minutes: 45
