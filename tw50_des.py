@@ -242,15 +242,17 @@ def train_or_load_des(stock_id: str, X_train: pd.DataFrame, y_train: pd.Series,
         try:
             base_clf = joblib.load(rf_path)
             model = joblib.load(des_path)
-            print(f'[{stock_id}] loaded cached RF + KNORAE')
-            return base_clf, model, {'rf_path': str(rf_path), 'des_path': str(des_path)}
+            if model.k == 30:
+                print(f'[{stock_id}] loaded cached RF + KNORAE')
+                return base_clf, model, {'rf_path': str(rf_path), 'des_path': str(des_path)}
+            print(f'[{stock_id}] cached KNORAE uses k={model.k}; retraining with k=30.')
         except Exception as err:
             print(f'[{stock_id}] cache load failed ({err}); retraining.')
 
     print(f'[{stock_id}] fitting RandomForest ...')
     base_clf = find_best_rf(X_train, y_train, random_state=random_state)
     print(f'[{stock_id}] fitting KNORA-E ...')
-    model = KNORAE(pool_classifiers=base_clf, k=10, DFP=True)
+    model = KNORAE(pool_classifiers=base_clf, k=30, DFP=True)
     model.fit(X_train.to_numpy(), y_train.to_numpy())
     joblib.dump(base_clf, rf_path)
     joblib.dump(model, des_path)

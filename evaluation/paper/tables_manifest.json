@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "tables": {
+    "10": {
+      "evidence_status_counts": {
+        "reported_only": 50,
+        "reported_only_ticker_mismatch": 1
+      },
+      "rows": 51,
+      "source": "evaluation/paper/sources/table10_top50_flooding_reported.csv",
+      "source_sha256": "b94328cf2578328d6db968995c8c4178ce8b81dce2c09a6b1e8f1c2c0a06e04f",
+      "title": "Per-stock OOS returns and flooding ablations"
+    },
+    "3": {
+      "evidence_status_counts": {
+        "reported_only": 6
+      },
+      "rows": 6,
+      "source": "evaluation/paper/sources/table3_walk_forward_reported.csv",
+      "source_sha256": "fb13b948c48b7a0a3a9f24f9216cd05d4aafe44706d2c77429b3f45f53e400d8",
+      "title": "Walk-forward validation precision"
+    },
+    "4": {
+      "evidence_status_counts": {
+        "reported_only": 7
+      },
+      "rows": 7,
+      "source": "evaluation/paper/sources/table4_module_ablation_reported.csv",
+      "source_sha256": "01591f9c0e942ac79079eaa6ec4a31dc19e00dca52f8d084ac3f8b818411566b",
+      "title": "Module ablation on the TWSE Top-50"
+    },
+    "5": {
+      "evidence_status_counts": {
+        "reported_only": 6
+      },
+      "rows": 6,
+      "source": "evaluation/paper/sources/table5_horizon_reported.csv",
+      "source_sha256": "9c7fe0151e35d5e0c3024b53a9cf1bb54ad08e55777f622eb3554da816bac2fb",
+      "title": "Signal-horizon sensitivity"
+    },
+    "6": {
+      "evidence_status_counts": {
+        "reported_only": 3,
+        "reproducible_from_shipped_nav": 12
+      },
+      "rows": 15,
+      "source": "evaluation/paper/sources/table6_cross_market_reported.csv",
+      "source_sha256": "6486d87844e4c84a24d4cada1fad56e98d536657c58e0e3b45e1d9e75fa49bc0",
+      "title": "Cross-market portfolio back-test statistics"
+    },
+    "7": {
+      "evidence_status_counts": {
+        "mixed": 1,
+        "reported_only": 8
+      },
+      "rows": 9,
+      "source": "evaluation/paper/sources/table7_uncertainty_reported.csv",
+      "source_sha256": "42f3890d0be270eb78418cf931de954eb3d73a590fc3d563900943d0335ab322",
+      "title": "Uncertainty and statistical reliability"
+    },
+    "8": {
+      "evidence_status_counts": {
+        "reported_only": 4
+      },
+      "rows": 4,
+      "source": "evaluation/paper/sources/table8_regime_reported.csv",
+      "source_sha256": "1092dc7195821d5c682f4348cb04ebc3b77e1d5f4758a25700c1d79c2a3131a5",
+      "title": "Regime-conditional performance"
+    },
+    "9": {
+      "evidence_status_counts": {
+        "reproduced": 4,
+        "reproduced_with_schema_drift": 1
+      },
+      "rows": 5,
+      "schema_drift_rows": 6,
+      "source": "features/*.csv",
+      "source_file_count": 250,
+      "title": "Taxonomy of the 78 features"
+    }
+  }
+}

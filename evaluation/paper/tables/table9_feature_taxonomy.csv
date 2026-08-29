@@ -1,0 +1,6 @@
+feature_group,file_prefix,feature_count,features,description,source_file_count,evidence_status
+Fundamental,fundamental,16,"PE_trailing, PEG, PBR, DY, R_mom, R_yoy, R_acc_yoy, E_qoq, E_yoy, E_acc_yoy, Op_qoq, Op_yoy, Op_acc_yoy, Gross, Gross_qoq, EPS_qoq","Valuation ratios and revenue, income, margin, and EPS growth.",50,reproduced_with_schema_drift
+Price Trend (Tech-trend),tech_trend,21,"sma_5, sma_10, sma_20, sma_60, sma_120, hullma_20, hullma_60, hullma_120, mmi_5, mmi_10, mmi_20, aroon_osc, osc, bb, bias, alpha, open, high, low, close, volume","Trend-following technicals, rolling alpha, and OHLCV.",50,reproduced
+Momentum,moment,13,"rsi, k, d, wr, cci, adx, acc_5, acc_10, acc_20, acc_60, acc_120, vpt, beta","Oscillators, multi-window acceleration, VPT, and rolling beta.",50,reproduced
+Float (Chip / Trade flow),trade,13,"foreign_cap_ratio, invst_cap_ratio, foreign_cost, invst_cost, major_cost, margin_b, short_b, smr, borrow_b, ins_nbd, ins_nbv, Force_nbv, Force_nbd","Institutional holdings, costs, balances, borrowing, and net buying.",50,reproduced
+Macro,macro,15,"Price_rate_3m, Price_rate_10y, Price_oil, Price_gold, Price_copper, Price_S&P500, Price_Nasdaq, Price_VIX, Price_SOX, Price_FX, Price_BDI, Price_CRB, Price_TX03C, Price_TX03P, Price_TX03F","Rates, commodities, global indices, volatility, FX, and derivatives.",50,reproduced

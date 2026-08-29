@@ -671,7 +671,7 @@ def update_DES(tickers, train_end, used_feats=None, force_retrain=False,
                     model = joblib.load(des_model_path)
                 else:
                     base_classifier = findBestRF(X_train, y_train)
-                    model = KNORAE(pool_classifiers=base_classifier, k=10, DFP=True)
+                    model = KNORAE(pool_classifiers=base_classifier, k=30, DFP=True)
                     model.fit(X_train, y_train)
                     joblib.dump(base_classifier, rf_model_path)
                     joblib.dump(model, des_model_path)

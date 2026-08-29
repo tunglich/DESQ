@@ -1,0 +1,18 @@
+\begin{table*}[!t]
+\centering
+\caption{Taxonomy of the 78 features.}
+\label{tab:feature_taxonomy}
+\begin{tabular}{lrlp{8.5cm}}
+\toprule
+Feature group & \# & Features & Description \\
+\midrule
+Fundamental & 16 & PE\_trailing, PEG, PBR, DY, R\_mom, R\_yoy, R\_acc\_yoy, E\_qoq, E\_yoy, E\_acc\_yoy, Op\_qoq, Op\_yoy, Op\_acc\_yoy, Gross, Gross\_qoq, EPS\_qoq & Valuation ratios and revenue, income, margin, and EPS growth. \\
+Price Trend (Tech-trend) & 21 & sma\_5, sma\_10, sma\_20, sma\_60, sma\_120, hullma\_20, hullma\_60, hullma\_120, mmi\_5, mmi\_10, mmi\_20, aroon\_osc, osc, bb, bias, alpha, open, high, low, close, volume & Trend-following technicals, rolling alpha, and OHLCV. \\
+Momentum & 13 & rsi, k, d, wr, cci, adx, acc\_5, acc\_10, acc\_20, acc\_60, acc\_120, vpt, beta & Oscillators, multi-window acceleration, VPT, and rolling beta. \\
+Float (Chip / Trade flow) & 13 & foreign\_cap\_ratio, invst\_cap\_ratio, foreign\_cost, invst\_cost, major\_cost, margin\_b, short\_b, smr, borrow\_b, ins\_nbd, ins\_nbv, Force\_nbv, Force\_nbd & Institutional holdings, costs, balances, borrowing, and net buying. \\
+Macro & 15 & Price\_rate\_3m, Price\_rate\_10y, Price\_oil, Price\_gold, Price\_copper, Price\_S&P500, Price\_Nasdaq, Price\_VIX, Price\_SOX, Price\_FX, Price\_BDI, Price\_CRB, Price\_TX03C, Price\_TX03P, Price\_TX03F & Rates, commodities, global indices, volatility, FX, and derivatives. \\
+\midrule
+Total & 78 & -- & Five domain-informed groups. \\
+\bottomrule
+\end{tabular}
+\end{table*}

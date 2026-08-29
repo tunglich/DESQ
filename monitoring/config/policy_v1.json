@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "classification": "operational_policy",
+  "cadence": "monthly",
+  "minimum_mature_anchors": 60,
+  "alarm_thresholds": {
+    "precision_gap": 0.05,
+    "return_gap": 0.0,
+    "flooding_upper_fraction": 0.25
+  },
+  "broad_drift": {
+    "minimum_stocks": 10,
+    "minimum_feature_groups": 3
+  },
+  "promotion": {
+    "minimum_precision_improvement": 0.0,
+    "maximum_sharpe_decrease": 0.0,
+    "maximum_turnover_increase": 0.0,
+    "maximum_drawdown_increase": 0.0
+  },
+  "candidate_budget": 16
+}

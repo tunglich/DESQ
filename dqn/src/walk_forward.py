@@ -1,8 +1,10 @@
-"""5-fold contiguous walk-forward CV for TW-DQN training.
+"""Revised-paper rolling walk-forward CV for TW-DDQN training.
 
-Splits ``2005-01-03 ~ TEST_START`` history into 5 equal-length contiguous
-chunks. For fold ``k``, ``val = chunk_k`` and ``train = concat(chunks j != k)``.
-Test window (``date >= TEST_START``) is held out entirely.
+Builds the five dated pre-2024 windows reported in Table 3. Within each
+window, the first 80% is the training side and the final 20% is validation.
+The final training anchors are removed so the 20-day label horizon plus the
+30-trading-day purge cannot overlap validation. The post-2024 test window is
+held out entirely.
 
 Per-symbol adaptive start: the first row where OHLC are all > 0 is used as the
 effective start (some symbols IPO after 2005). All non-finite / zero-open rows
@@ -26,6 +28,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATA_DIR = REPO_ROOT / "data"
 TEST_START = pd.Timestamp("2024-01-01")
 N_FOLDS = 5
+LABEL_HORIZON = 20
+PURGE_GAP = 30
+PAPER_WINDOWS = (
+    (pd.Timestamp("2005-01-01"), pd.Timestamp("2015-12-31")),
+    (pd.Timestamp("2007-01-01"), pd.Timestamp("2017-12-31")),
+    (pd.Timestamp("2009-01-01"), pd.Timestamp("2019-12-31")),
+    (pd.Timestamp("2011-01-01"), pd.Timestamp("2021-12-31")),
+    (pd.Timestamp("2013-01-01"), pd.Timestamp("2023-12-31")),
+)
 
 
 class FoldPaths(NamedTuple):
@@ -60,16 +71,24 @@ def load_prefiltered(csv_path: Path, test_start: pd.Timestamp = TEST_START) -> p
 
 
 def split_folds(df: pd.DataFrame, n_folds: int = N_FOLDS) -> list[tuple[pd.DataFrame, pd.DataFrame]]:
-    """Return [(train_df, val_df) for each fold]."""
-    n = len(df)
-    if n < n_folds * 20:
-        raise RuntimeError(f"Only {n} rows, too few for {n_folds}-fold CV")
-    edges = np.linspace(0, n, n_folds + 1, dtype=int)
+    """Return paper rolling-window ``(train, validation)`` pairs."""
+    if n_folds != N_FOLDS:
+        raise ValueError(f"The revised-paper protocol requires {N_FOLDS} folds")
+
     folds = []
-    for k in range(n_folds):
-        lo, hi = int(edges[k]), int(edges[k + 1])
-        val = df.iloc[lo:hi].copy()
-        train = pd.concat([df.iloc[:lo], df.iloc[hi:]], axis=0).copy()
+    for fold_id, (start, end) in enumerate(PAPER_WINDOWS, start=1):
+        window = df.loc[df["<DATE>"].between(start, end)].reset_index(drop=True)
+        if len(window) < 100:
+            raise RuntimeError(
+                f"Fold {fold_id} ({start.year}-{end.year}) has only {len(window)} rows; "
+                "the paper protocol requires full pre-2024 DES history"
+            )
+        validation_start = int(np.floor(len(window) * 0.8))
+        train_stop = validation_start - LABEL_HORIZON - PURGE_GAP + 1
+        if train_stop <= 0:
+            raise RuntimeError(f"Fold {fold_id} has no training rows after label/purge isolation")
+        train = window.iloc[:train_stop].copy()
+        val = window.iloc[validation_start:].copy()
         folds.append((train, val))
     return folds
 

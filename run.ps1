@@ -35,12 +35,14 @@ param(
     [Parameter(Position = 0)]
     [ValidateSet('help', 'preflight', 'lint',
                  'prices', 'stage1', 'stage2', 'stage2-oof', 'stage3', 'stage3-strict',
+                 'stage4-data', 'stage4-train', 'stage4-backtest',
+                 'monitor-smoke', 'monitor-stage2',
                  'smoke', 'smoke-oof',
                  'full-2330', 'full-flagships', 'full-top50',
                  'seed-sweep',
                  'rerun-baselines', 'verify-baselines', 'snapshot-baselines',
                  'verify-prices', 'hash-shipped', 'repro', 'manifest-check',
-                 'figures', 'figures-us', 'tables',
+                 'figures', 'figures-us', 'tables', 'tables-check',
                  'clean-smoke', 'clean-artifacts', 'clean-all')]
     [string]$Target = 'help',
 
@@ -49,6 +51,7 @@ param(
     [int]$Trials = 12,
     [int]$Epochs = 80,
     [int]$DfloodEpochs = 120,
+    [double]$DqnHours = 1.5,
     [int]$Batch = 64,
     [int]$SmokeTrials = 2,
     [int]$SmokeEpochs = 3,
@@ -92,11 +95,17 @@ TW-50 DESQ run.ps1 -- Windows PowerShell task runner
     stage2-oof        Dynamic Flooding retrain with --des-oof
     stage3            KNORA-E ensemble + backtest
     stage3-strict     stage3 with --strict-oof leakage guard
+    stage4-data       build Double-DQN input from Stage 3 output
+    stage4-train      train all five DQN walk-forward folds
+    stage4-backtest   evaluate the promoted Stage 4 checkpoint
+    monitor-smoke     synthetic Appendix-F Level 0-3 smoke
+    monitor-stage2    immutable Stage 2 snapshot for -Stock
 
   Paper artifacts (no training required):
     figures           regenerate paper Fig 17
     figures-us        regenerate paper Fig 19
-    tables            print summary table snippets
+    tables            regenerate and audit revised-paper Tables 3-10
+    tables-check      run revised-paper table regression tests
 
   Cleanup:
     clean-smoke       remove smoke-test artifacts for -Stock
@@ -125,6 +134,11 @@ switch ($Target) {
     'stage2-oof'    { Invoke-Cmd "$py tw50_dflood.py --stock-ids $Stock --aspect all --epochs $DfloodEpochs --batch-size $Batch --des-oof" }
     'stage3'         { Invoke-Cmd "$py tw50_des.py    --stock-ids $Stock --no-show" }
     'stage3-strict' { Invoke-Cmd "$py tw50_des.py    --stock-ids $Stock --no-show --strict-oof" }
+    'stage4-data'    { Push-Location dqn; try { Invoke-Cmd "$py build_dqn_data.py --stock-ids $Stock --overwrite" } finally { Pop-Location } }
+    'stage4-train'   { Push-Location dqn; try { Invoke-Cmd "$py src/train_dqn.py --symbol $Stock --fold all --hours $DqnHours" } finally { Pop-Location } }
+    'stage4-backtest' { Push-Location dqn; try { Invoke-Cmd "$py src/backtest.py --symbol $Stock --out backtest_summary.csv" } finally { Pop-Location } }
+    'monitor-smoke'   { Invoke-Cmd "$py -m monitoring smoke" }
+    'monitor-stage2'  { Invoke-Cmd "$py -m monitoring collect-stage2 --stock-id $Stock" }
 
     'seed-sweep' {
         Invoke-Cmd "$py scripts/run_seed_sweep.py --stock-ids $Stock --seeds $SweepSeeds --stages $SweepStages"
@@ -182,9 +196,8 @@ switch ($Target) {
 
     'figures'    { Invoke-Cmd "$py evaluation/render_figure_backtest.py" }
     'figures-us' { Invoke-Cmd "$py us/baselines/combined/combined_comparison.py" }
-    'tables' {
-        Invoke-Cmd "$py -c `"import pandas as pd, glob; files=sorted(glob.glob('evaluation/backtest_*.csv')); [print(f'{f}: {pd.read_csv(f).iloc[-1].to_dict()}') for f in files]`""
-    }
+    'tables'      { Invoke-Cmd "$py evaluation/paper/generate_tables.py" }
+    'tables-check' { Invoke-Cmd "$py -m unittest discover -s evaluation/paper/tests -v" }
 
     'clean-smoke' {
         Write-Host "Removing smoke-test artifacts for STOCK=$Stock ..." -ForegroundColor Yellow

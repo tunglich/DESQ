@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
+import json
 import sys
 from pathlib import Path
 
@@ -57,14 +59,35 @@ def buy_and_hold_pct(df: pd.DataFrame, commission_buy: float, commission_sell: f
     return ret_pct
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def evaluator_hash(bars_count: int, commission_buy: float,
+                   commission_sell: float, epsilon: float) -> str:
+    payload = json.dumps({
+        "bars_count": bars_count,
+        "commission_buy": commission_buy,
+        "commission_sell": commission_sell,
+        "epsilon": epsilon,
+        "reset_on_close": False,
+        "reward_on_close": False,
+        "state_1d": True,
+    }, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("ascii")).hexdigest()
+
+
 def run_backtest(model_path: Path, test_csv: Path,
                  commission_buy: float, commission_sell: float,
                  bars_count: int = 10, device: str = "cpu",
-                 epsilon: float = 0.0) -> dict:
+                 epsilon: float = 0.0, capture_trace: bool = False) -> dict:
     prices = {"TW": data.load_relative(str(test_csv))}
     env = environ.StocksEnv(
         prices,
-        bars_count=bars_count,
         commission=commission_buy,
         commission_buy=commission_buy,
         commission_sell=commission_sell,
@@ -86,6 +109,11 @@ def run_backtest(model_path: Path, test_csv: Path,
     total_reward = 0.0
     steps = 0
     n_buy = n_close = n_skip = 0
+    nav = 1.0
+    trace_rows: list[dict] = []
+    trace_frame = pd.read_csv(test_csv) if capture_trace else None
+    checkpoint_hash = sha256_file(model_path) if capture_trace else ""
+    eval_hash = evaluator_hash(bars_count, commission_buy, commission_sell, epsilon)
     with torch.no_grad():
         while True:
             obs_v = torch.tensor(np.array([obs], dtype=np.float32)).to(device)
@@ -99,9 +127,31 @@ def run_backtest(model_path: Path, test_csv: Path,
                 n_buy += 1
             else:
                 n_close += 1
+            offset_before = env._state._offset
+            position_before = bool(env._state.have_position)
             obs, reward, terminated, truncated, _ = env.step(action_idx)
+            position_after = bool(env._state.have_position)
             total_reward += float(reward)
+            nav *= 1.0 + float(reward) / 100.0
             steps += 1
+            if trace_frame is not None:
+                cost_pct = 0.0
+                if action_idx == 1 and not position_before:
+                    cost_pct = commission_buy
+                elif action_idx == 2 and position_before:
+                    cost_pct = commission_sell
+                trace_rows.append({
+                    "date": trace_frame["<DATE>"].iloc[offset_before],
+                    "action": environ.Actions(action_idx).name.lower(),
+                    "position_before": int(position_before),
+                    "position_after": int(position_after),
+                    "reward_pct": float(reward),
+                    "cost_pct": cost_pct,
+                    "nav": nav,
+                    "des_probability": float(trace_frame["<DES>"].iloc[offset_before]),
+                    "checkpoint_sha256": checkpoint_hash,
+                    "evaluator_sha256": eval_hash,
+                })
             if terminated or truncated:
                 break
     return {
@@ -110,6 +160,8 @@ def run_backtest(model_path: Path, test_csv: Path,
         "n_buy": n_buy,
         "n_close": n_close,
         "n_skip": n_skip,
+        "trace": trace_rows,
+        "evaluator_sha256": eval_hash,
     }
 
 
@@ -139,11 +191,13 @@ def main() -> int:
     ap.add_argument("--data-dir", type=Path, default=REPO_ROOT / "data")
     ap.add_argument("--tmp-dir", type=Path, default=REPO_ROOT / "saves" / "_backtest_tmp")
     ap.add_argument("--bars", type=int, default=10)
-    ap.add_argument("--commission-buy", type=float, default=0.10)
-    ap.add_argument("--commission-sell", type=float, default=0.34)
+    ap.add_argument("--commission-buy", type=float, default=0.1425)
+    ap.add_argument("--commission-sell", type=float, default=0.4425)
     ap.add_argument("--epsilon", type=float, default=0.0)
     ap.add_argument("--cpu", action="store_true")
     ap.add_argument("--out", type=Path, default=None, help="Write summary CSV")
+    ap.add_argument("--trace-dir", type=Path, default=None,
+                    help="Write deterministic per-symbol daily monitoring traces")
     args = ap.parse_args()
 
     device = "cuda" if (not args.cpu and torch.cuda.is_available()) else "cpu"
@@ -182,7 +236,8 @@ def main() -> int:
                                commission_buy=args.commission_buy,
                                commission_sell=args.commission_sell,
                                bars_count=args.bars, device=device,
-                               epsilon=args.epsilon)
+                               epsilon=args.epsilon,
+                               capture_trace=args.trace_dir is not None)
         except Exception as e:  # noqa: BLE001
             print(f"[error] {sym}: {e}")
             continue
@@ -199,8 +254,15 @@ def main() -> int:
             "excess_pct": round(res["model_pct"] - bh_pct, 4),
             "n_buy": res["n_buy"], "n_close": res["n_close"], "n_skip": res["n_skip"],
             "model_file": model_path.name,
+            "model_sha256": sha256_file(model_path),
+            "evaluator_sha256": res["evaluator_sha256"],
         }
         rows.append(row)
+        if args.trace_dir is not None:
+            args.trace_dir.mkdir(parents=True, exist_ok=True)
+            trace_path = args.trace_dir / f"{sym}_daily_trace.csv"
+            pd.DataFrame(res["trace"]).to_csv(trace_path, index=False, lineterminator="\n")
+            print(f"  trace: {trace_path}")
         print(f"  {sym}: model={row['model_pct']:+7.2f}%  BH={row['bh_pct']:+7.2f}%  "
               f"excess={row['excess_pct']:+7.2f}%  rows={n_rows}  "
               f"buys={row['n_buy']} closes={row['n_close']}")

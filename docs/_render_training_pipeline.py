@@ -1,4 +1,4 @@
-"""Render docs/training_pipeline.png — DESQ end-to-end training pipeline (7 stages).
+"""Render docs/training_pipeline.png — DESQ end-to-end training pipeline (8 stages).
 
 This is the DESQ-repo copy of the IEEE-style pipeline figure with per-stage
 code annotations pointing to the scripts in this repository.
@@ -105,11 +105,11 @@ def _arrow(ax, x1, y1, x2, y2, *, lw=1.1, label=None,
 
 
 def main() -> None:
-    fig, ax = plt.subplots(figsize=(7.6, 10.0), dpi=300)
+    fig, ax = plt.subplots(figsize=(7.6, 11.0), dpi=300)
     fig.patch.set_facecolor(BG)
     ax.set_facecolor(BG)
     ax.set_xlim(0, 10)
-    ax.set_ylim(-0.15, 13.4)
+    ax.set_ylim(-1.85, 13.4)
     ax.axis("off")
 
     _box(
@@ -178,10 +178,18 @@ def main() -> None:
 
     _box(
         ax, 5.0, 0.65, 7.2, 1.30,
-        "Stage 7: Dynamic Ensemble Selection and Backtest",
-        ("KNORA-E over 5-aspect predictions with\n"
-         "random-forest base learners, followed by backtest"),
-        code="tw50_des.py   \u2192 artifacts/des/backtest/summary.csv",
+        "Stage 7: Dynamic Ensemble Selection",
+        ("KNORA-E (K=30) over 5-aspect predictions with\n"
+         "random-forest base learners; rule backtest is diagnostic only"),
+        code="tw50_des.py   \u2192 artifacts/des/pred/DES_{stock}.csv",
+    )
+
+    _box(
+        ax, 5.0, -0.95, 7.2, 1.30,
+        "Stage 8: Signal-Conditioned Double DQN",
+        ("10 DES signals + 10 OHLC bars + position + running P&L;\n"
+         "Skip / Buy / Close actions with prioritised replay"),
+        code="dqn/build_dqn_data.py   +   dqn/src/train_dqn.py",
     )
 
     _arrow(ax, 5.0, 11.675, 5.0, 11.30)
@@ -200,6 +208,7 @@ def main() -> None:
            label="after 5 aspects", label_offset=(1.0, 0))
 
     _arrow(ax, 5.0, 1.55, 5.0, 1.30)
+    _arrow(ax, 5.0, 0.00, 5.0, -0.30)
 
     plt.tight_layout()
     fig.savefig(OUT_PATH, facecolor=BG, bbox_inches="tight")

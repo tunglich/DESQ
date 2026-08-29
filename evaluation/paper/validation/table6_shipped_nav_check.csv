@@ -1,0 +1,94 @@
+universe,method,metric,paper_value,recomputed_value,difference,pass_0_02
+Dow 30,DRL Ensemble,total_return_pct,28.57,28.57191,0.00191,True
+Dow 30,DRL Ensemble,excess_return_pct,8.68,8.683023,0.003023,True
+Dow 30,DRL Ensemble,annual_return_pct,11.93,11.92857,-0.00143,True
+Dow 30,DRL Ensemble,annual_volatility_pct,16.49,16.48845,-0.00155,True
+Dow 30,DRL Ensemble,sharpe_tbill,0.5,0.498936,-0.001064,True
+Dow 30,DRL Ensemble,sortino_tbill,0.68,0.642503,-0.037497,False
+Dow 30,DRL Ensemble,max_drawdown_pct,-22.15,-22.146903,0.003097,True
+Dow 30,DRL Ensemble,calmar,0.54,0.538611,-0.001389,True
+Dow 30,DSR,total_return_pct,11.78,11.779277,-0.000723,True
+Dow 30,DSR,excess_return_pct,-8.11,-8.10961,0.00039,True
+Dow 30,DSR,annual_return_pct,5.12,5.119948,-5.2e-05,True
+Dow 30,DSR,annual_volatility_pct,15.67,15.66733,-0.00267,True
+Dow 30,DSR,sharpe_tbill,0.12,0.115302,-0.004698,True
+Dow 30,DSR,sortino_tbill,0.07,0.058187,-0.011813,True
+Dow 30,DSR,max_drawdown_pct,-15.98,-15.982625,-0.002625,True
+Dow 30,DSR,calmar,0.32,0.320345,0.000345,True
+Dow 30,MACE,total_return_pct,65.53,65.525091,-0.004909,True
+Dow 30,MACE,excess_return_pct,45.64,45.636204,-0.003796,True
+Dow 30,MACE,annual_return_pct,25.35,25.35401,0.00401,True
+Dow 30,MACE,annual_volatility_pct,19.21,19.210874,0.000874,True
+Dow 30,MACE,sharpe_tbill,1.04,1.044386,0.004386,True
+Dow 30,MACE,sortino_tbill,1.69,1.752692,0.062692,False
+Dow 30,MACE,max_drawdown_pct,-19.44,-19.44075,-0.00075,True
+Dow 30,MACE,calmar,1.3,1.304168,0.004168,True
+Dow 30,^DJI (benchmark),total_return_pct,19.89,19.888887,-0.001113,True
+Dow 30,^DJI (benchmark),annual_return_pct,8.47,8.473676,0.003676,True
+Dow 30,^DJI (benchmark),annual_volatility_pct,14.25,14.245666,-0.004334,True
+Dow 30,^DJI (benchmark),sharpe_tbill,0.33,0.33268,0.00268,True
+Dow 30,^DJI (benchmark),sortino_tbill,0.43,0.39676,-0.03324,False
+Dow 30,^DJI (benchmark),max_drawdown_pct,-16.37,-16.369225,0.000775,True
+Dow 30,^DJI (benchmark),calmar,0.52,0.517659,-0.002341,True
+S&P 100,DRL Ensemble,total_return_pct,25.82,25.824705,0.004705,True
+S&P 100,DRL Ensemble,excess_return_pct,-13.17,-13.165876,0.004124,True
+S&P 100,DRL Ensemble,annual_return_pct,10.85,10.849796,-0.000204,True
+S&P 100,DRL Ensemble,annual_volatility_pct,15.1,15.102402,0.002402,True
+S&P 100,DRL Ensemble,sharpe_tbill,0.47,0.466116,-0.003884,True
+S&P 100,DRL Ensemble,sortino_tbill,0.6,0.566087,-0.033913,False
+S&P 100,DRL Ensemble,max_drawdown_pct,-17.13,-17.132988,-0.002988,True
+S&P 100,DRL Ensemble,calmar,0.63,0.633269,0.003269,True
+S&P 100,DSR,total_return_pct,64.45,64.450118,0.000118,True
+S&P 100,DSR,excess_return_pct,25.46,25.459537,-0.000463,True
+S&P 100,DSR,annual_return_pct,24.99,24.988318,-0.001682,True
+S&P 100,DSR,annual_volatility_pct,35.18,35.178619,-0.001381,True
+S&P 100,DSR,sharpe_tbill,0.68,0.685854,0.005854,True
+S&P 100,DSR,sortino_tbill,0.95,0.826741,-0.123259,False
+S&P 100,DSR,max_drawdown_pct,-31.1,-31.098171,0.001829,True
+S&P 100,DSR,calmar,0.8,0.80353,0.00353,True
+S&P 100,MACE,total_return_pct,34.25,34.248818,-0.001182,True
+S&P 100,MACE,excess_return_pct,-4.74,-4.741763,-0.001763,True
+S&P 100,MACE,annual_return_pct,14.12,14.11819,-0.00181,True
+S&P 100,MACE,annual_volatility_pct,15.63,15.631233,0.001233,True
+S&P 100,MACE,sharpe_tbill,0.64,0.641647,0.001647,True
+S&P 100,MACE,sortino_tbill,0.87,0.850415,-0.019585,True
+S&P 100,MACE,max_drawdown_pct,-18.83,-18.831712,-0.001712,True
+S&P 100,MACE,calmar,0.75,0.749703,-0.000297,True
+S&P 100,^OEX (benchmark),total_return_pct,38.99,38.990581,0.000581,True
+S&P 100,^OEX (benchmark),annual_return_pct,15.91,15.908273,-0.001727,True
+S&P 100,^OEX (benchmark),annual_volatility_pct,16.84,16.842723,0.002723,True
+S&P 100,^OEX (benchmark),sharpe_tbill,0.7,0.699551,-0.000449,True
+S&P 100,^OEX (benchmark),sortino_tbill,0.9,0.889355,-0.010645,True
+S&P 100,^OEX (benchmark),max_drawdown_pct,-19.89,-19.886785,0.003215,True
+S&P 100,^OEX (benchmark),calmar,0.8,0.799942,-5.8e-05,True
+NASDAQ,DRL Ensemble,total_return_pct,51.6,51.595399,-0.004601,True
+NASDAQ,DRL Ensemble,excess_return_pct,12.85,12.853469,0.003469,True
+NASDAQ,DRL Ensemble,annual_return_pct,20.51,20.508964,-0.001036,True
+NASDAQ,DRL Ensemble,annual_volatility_pct,21.97,21.969034,-0.000966,True
+NASDAQ,DRL Ensemble,sharpe_tbill,0.76,0.759357,-0.000643,True
+NASDAQ,DRL Ensemble,sortino_tbill,1.04,1.005512,-0.034488,False
+NASDAQ,DRL Ensemble,max_drawdown_pct,-18.95,-18.945202,0.004798,True
+NASDAQ,DRL Ensemble,calmar,1.08,1.082541,0.002541,True
+NASDAQ,DSR,total_return_pct,79.45,79.453454,0.003454,True
+NASDAQ,DSR,excess_return_pct,40.71,40.711524,0.001524,True
+NASDAQ,DSR,annual_return_pct,29.98,29.978534,-0.001466,True
+NASDAQ,DSR,annual_volatility_pct,21.34,21.341484,0.001484,True
+NASDAQ,DSR,sharpe_tbill,1.13,1.130296,0.000296,True
+NASDAQ,DSR,sortino_tbill,1.7,1.783682,0.083682,False
+NASDAQ,DSR,max_drawdown_pct,-26.2,-26.196225,0.003775,True
+NASDAQ,DSR,calmar,1.14,1.144384,0.004384,True
+NASDAQ,MACE,total_return_pct,40.96,40.959616,-0.000384,True
+NASDAQ,MACE,excess_return_pct,2.22,2.217686,-0.002314,True
+NASDAQ,MACE,annual_return_pct,16.64,16.641704,0.001704,True
+NASDAQ,MACE,annual_volatility_pct,25.44,25.443785,0.003785,True
+NASDAQ,MACE,sharpe_tbill,0.56,0.559154,-0.000846,True
+NASDAQ,MACE,sortino_tbill,0.75,0.668437,-0.081563,False
+NASDAQ,MACE,max_drawdown_pct,-26.44,-26.436806,0.003194,True
+NASDAQ,MACE,calmar,0.63,0.62949,-0.00051,True
+NASDAQ,^NDX (benchmark),total_return_pct,38.74,38.74193,0.00193,True
+NASDAQ,^NDX (benchmark),annual_return_pct,15.82,15.815249,-0.004751,True
+NASDAQ,^NDX (benchmark),annual_volatility_pct,20.71,20.713151,0.003151,True
+NASDAQ,^NDX (benchmark),sharpe_tbill,0.6,0.599699,-0.000301,True
+NASDAQ,^NDX (benchmark),sortino_tbill,0.79,0.744781,-0.045219,False
+NASDAQ,^NDX (benchmark),max_drawdown_pct,-22.93,-22.931508,-0.001508,True
+NASDAQ,^NDX (benchmark),calmar,0.69,0.689673,-0.000327,True

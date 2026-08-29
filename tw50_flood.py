@@ -93,10 +93,12 @@ TEST_END = '2026-03-31'
 #   Macro       -> 'macro'
 ASPECTS: tuple[str, ...] = ('fundamental', 'trade', 'tech_trend', 'moment', 'macro')
 
-# Walk-forward rolling: 5 folds, 20% val block, purge gap >= label horizon (20d).
+# Paper walk-forward: 20-day label isolation followed by a 30-day purge.
 WF_N_SPLITS = int(os.getenv('WF_N_SPLITS', '5'))
 WF_VAL_RATIO = float(os.getenv('WF_VAL_RATIO', '0.20'))
-WF_GAP = int(os.getenv('WF_GAP', '20'))
+LABEL_HORIZON = 20
+PURGE_GAP = 30
+WF_GAP = int(os.getenv('WF_GAP', str(LABEL_HORIZON + PURGE_GAP)))
 
 # Dynamic-flooding candidate grid: b in [0.0, 0.4], step 0.05 (9 values).
 FLOODING_GRID: tuple[float, ...] = tuple(round(0.05 * i, 2) for i in range(9))  # 0.00 .. 0.40

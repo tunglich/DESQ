@@ -6,8 +6,8 @@ Configuration is intentionally narrow compared to the internal
 * Features       : ``<DES> + <OHLC>``  (no volume, no sentiment)
 * State encoder  : 1-D CNN (``DQNConv1DLarge``) with ``bars_count=10``
 * Reward         : realised P&L (no Sharpe shaping, no idle penalty)
-* Commissions    : buy 0.10 % / sell 0.34 % (TW retail with 0.30 % tax)
-* Replay         : prioritised (PER) + n-step return
+* Commissions    : buy 0.1425 % / sell 0.4425 %
+* Learning       : Double DQN with prioritised replay (PER) + n-step return
 * Validation     : 5-fold contiguous walk-forward (see ``src/walk_forward.py``)
 * Test           : 2024-01-02 ~ 2026-03-30 (see ``src/backtest.py``)
 
@@ -46,22 +46,22 @@ def default_cfg() -> dict:
         "train_csv": None,
         "val_csv": None,
         # DQN hyper-parameters
-        "gamma": 0.95,
+        "gamma": 0.99,
         "lr": 1e-4,
         "batch_size": 128,
         "bars_count": 10,
         "replay_size": 30000,
         "replay_initial": 1000,
         "reward_steps": 2,
-        "target_net_sync": 100,
+        "target_net_sync": 5000,
         "epsilon_start": 1.0,
         "epsilon_final": 0.05,
         "epsilon_steps": 100_000,
         "epsilon_ratio": 0.8,
         "beta_ratio": 0.9,
         # environment
-        "commission_buy": 0.10,
-        "commission_sell": 0.34,
+        "commission_buy": 0.1425,
+        "commission_sell": 0.4425,
         "reset_on_close": False,
         "reward_on_close": False,
         "state_1d": True,
@@ -125,16 +125,18 @@ def calc_loss(batch, batch_weights, net, tgt_net, gamma: float, device: str = "c
     states, actions, rewards, dones, next_states = common.unpack_batch(batch)
     states_v = torch.tensor(states).to(device)
     next_states_v = torch.tensor(next_states).to(device)
-    actions_v = torch.tensor(actions).to(device)
+    actions_v = torch.as_tensor(actions, dtype=torch.long, device=device)
     rewards_v = torch.tensor(rewards).to(device)
     done_mask = torch.BoolTensor(dones.astype(bool)).to(device)
     batch_weights_v = torch.tensor(batch_weights).to(device)
 
     state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
-    next_state_values = tgt_net(next_states_v).max(1)[0]
+    with torch.no_grad():
+        next_state_actions = net(next_states_v).argmax(dim=1, keepdim=True)
+        next_state_values = tgt_net(next_states_v).gather(1, next_state_actions).squeeze(-1)
     next_state_values[done_mask] = 0.0
 
-    expected = next_state_values.detach() * gamma + rewards_v
+    expected = next_state_values * gamma + rewards_v
     losses_v = batch_weights_v * (state_action_values - expected) ** 2
     return losses_v.mean(), losses_v + 1e-5
 

@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "authority": {
+    "document": "Paper2_IEEEAccess_appendixD_added.pdf",
+    "sha256": "7b474ee437690126d5474c696faf15a25a1d586861a090abf3a123ee1fc4f91a",
+    "section": "Appendix F",
+    "equations": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42]
+  },
+  "market": "TW",
+  "label_horizon_trading_days": 20,
+  "mature_window_trading_days": 60,
+  "purge_gap_trading_days": 30,
+  "effective_anchor_gap": 50,
+  "train_validation_ratio": "4:1",
+  "feature_groups": ["fundamental", "trend", "momentum", "trade", "macro"],
+  "knora_e_k": 30,
+  "transaction_cost_pct": {"buy": 0.1425, "sell": 0.4425},
+  "paper_alarm_rules": {
+    "minimum_alarm_count": 2,
+    "consecutive_mature_windows": 2,
+    "psi_threshold": 0.25,
+    "risk_alarm": "sharpe < 0 or information_ratio < 0",
+    "disagreement_alarm": "disagreement > training_disagreement_q90"
+  },
+  "level_1_threshold_grid": {"start": 0.45, "stop": 0.60, "step": 0.01},
+  "theta_allow": [
+    "des_threshold",
+    "des_competence_window",
+    "temperature_scaling",
+    "fine_tuning_learning_rate",
+    "fine_tuning_epochs",
+    "dynamic_flooding_bounds",
+    "freeze_policy",
+    "automl_ranges"
+  ],
+  "theta_forbid": [
+    "label_definition",
+    "split",
+    "transaction_costs",
+    "holdout_evaluator",
+    "benchmark",
+    "backtest_rule"
+  ],
+  "reported_experiment_activation": false
+}

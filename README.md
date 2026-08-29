@@ -9,13 +9,16 @@ A market-timing framework for the TWSE Top-50 constituents that stacks:
 
 1. **Attention (ATT) sequence classifier** with static Flooding regularization (Bayesian hyperparameter search).
 2. **Dynamic Flooding** retraining with the best `flooding_b` per aspect.
-3. **Dynamic Ensemble Selection (KNORA-E)** across the 5 per-aspect ATT predictions, followed by a signal-pattern-driven backtest.
+3. **Dynamic Ensemble Selection (KNORA-E, K=30)** across the 5 per-aspect ATT predictions.
+4. **Signal-Conditioned Double DQN** using the DES signal, OHLC history, position state, and running P&L to choose `Skip / Buy / Close`.
 
-The pipeline uses **walk-forward rolling validation** (4:1 train:val ratio) on 5 feature aspects.
+The pipeline uses the revised paper's five **walk-forward rolling validation**
+windows (4:1 train:validation ratio) with a 20-day label horizon and a further
+30-trading-day purge on five feature aspects.
 
 ## End-to-end training pipeline
 
-The seven stages below are the complete per-stock workflow, annotated with the exact script in this repository that implements each stage. The `next aspect` loop repeats stages 2–5 for each of the five feature aspects; after all five aspects are trained, stages 6–7 run once.
+The eight stages below are the complete per-stock workflow, annotated with the exact script in this repository that implements each stage. The `next aspect` loop repeats stages 2–5 for each of the five feature aspects; after all five aspects are trained, stages 6–8 run once.
 
 ![End-to-end training pipeline (7 stages, with code annotations)](docs/training_pipeline.png)
 
@@ -23,11 +26,26 @@ Regenerate the figure with `python docs/_render_training_pipeline.py`.
 
 ## Experimental results
 
-Out-of-sample back-tests over the 2024-01-02 to 2026-03-31 test window. DESQ (blue) is the KNORA-E ensemble of the five ATT+Dynamic-Flooding aspects with the signal-pattern trader; the black line is a passive buy-and-hold benchmark.
+The revised paper reports the following sealed-holdout results. These are the
+canonical headline values for this branch; their current evidence status is
+`reported_only` because the corresponding DDQN checkpoints and action paths
+are not shipped. See [evaluation/paper/README.md](evaluation/paper/README.md).
+
+| Revised-paper result | DESQ DDQN return | Benchmark return | Canonical source |
+| --- | ---: | ---: | --- |
+| TSMC (2330.TT) | **+202.50%** | +201.82% | [evaluation/paper/tables/table10_top50_flooding.csv](evaluation/paper/tables/table10_top50_flooding.csv) |
+| MediaTek (2454.TT) | **+101.20%** | +62.69% | [evaluation/paper/tables/table10_top50_flooding.csv](evaluation/paper/tables/table10_top50_flooding.csv) |
+| TWSE Top-50 portfolio | **+129.0%** | +88.07% | [evaluation/paper/tables/table8_regime.csv](evaluation/paper/tables/table8_regime.csv) |
+
+### Legacy diagnostic
+
+The shipped chart below evaluates KNORA-E with the earlier signal-pattern
+trader over 2024-01-02 to 2026-03-31. It is retained only for audit comparison
+and does not override the revised-paper values above.
 
 ![Out-of-sample back-tests](evaluation/figure_backtest_overview.png)
 
-| Panel | DESQ cumulative return | Buy-and-hold cumulative return | Source CSV |
+| Panel | Legacy rule-trader return | Buy-and-hold cumulative return | Source CSV |
 | --- | ---: | ---: | --- |
 | TSMC (2330.TT) | **+202.53 %** | +201.82 % | [evaluation/backtest_2330.csv](evaluation/backtest_2330.csv) |
 | MediaTek (2454.TT) | **+103.42 %** | +62.69 % | [evaluation/backtest_2454.csv](evaluation/backtest_2454.csv) |
@@ -46,11 +64,11 @@ The CSV schemas are:
 
 ### US extension — four-method paper reproduction
 
-Same ATT + Dynamic Flooding + KNORA-E stack applied to Dow 30 / S&P 100 / NASDAQ 100, benchmarked against three published DRL baselines. **DESQ** = our method (blue). See the [US extension README](us/README.md) and [baselines/backtest_report.md](us/baselines/backtest_report.md) for full experimental setup.
+The shipped US comparison is also **legacy DES+CUSUM evidence**. It has not yet been regenerated through the revised paper's Double-DQN execution layer and is retained as a diagnostic comparison only. See the [US extension README](us/README.md) and [alignment ledger](docs/paper_alignment.md).
 
 ![Four methods across three US universes](us/baselines/combined/four_methods_1x3.png)
 
-| Universe | DESQ (ours) | DSR — Yang 2018 | DRL Ensemble — Yang 2020 | MACE — Abbade 2026 | Benchmark index |
+| Universe | Legacy DES+CUSUM | DSR — Yang 2018 | DRL Ensemble — Yang 2020 | MACE — Abbade 2026 | Benchmark index |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Dow 30     | **+68.6 %** | +11.8 % | +28.6 % | +65.5 % | +19.9 % (^DJI) |
 | S&P 100    | **+89.5 %** | +64.5 % | +25.8 % | +34.3 % | +39.0 % (^OEX) |
@@ -124,11 +142,16 @@ features (5 aspects)│  tw50_flood.py  │  Bayesian tuning over ATT hyperparam
                     └────────┬────────┘  + test (OOS 2024..2026) probabilities
                              ▼
                     ┌─────────────────┐
-                    │  tw50_des.py    │  KNORA-E over 5 ATT probabilities +
-                    │   (Stage 3)     │  signal-pattern-driven backtest
+                    │  tw50_des.py    │  KNORA-E (K=30) over 5 ATT probabilities
+                    │   (Stage 3)     │  rule-based backtest retained as diagnostic
                     │                 │  --strict-oof aborts if any aspect's
                     │                 │  DES-train rows are not source='oof'
-                    └─────────────────┘  Reports cum_model vs buy&hold
+                    └────────┬────────┘  Writes DES probabilities
+                             ▼
+                    ┌─────────────────┐
+                    │      dqn/       │  Signal-Conditioned Double DQN
+                    │   (Stage 4)     │  DES + 10 OHLC bars + position + P&L
+                    └─────────────────┘  Skip / Buy / Close
 ```
 
 ## Repository layout
@@ -151,7 +174,7 @@ tw50_pipeline/
 ├── fetch_prices.py              # yfinance -> prices/<id>.csv helper
 ├── tw50_flood.py                # Stage 1: hyperparameter + flooding-b search
 ├── tw50_dflood.py               # Stage 2: Dynamic Flooding retrain + predict (--des-oof)
-├── tw50_des.py                  # Stage 3: KNORA-E ensemble + backtest (--strict-oof)
+├── tw50_des.py                  # Stage 3: KNORA-E ensemble + diagnostic backtest
 ├── Makefile                     # one-command recipes (Linux/WSL/macOS)
 ├── run.ps1                      # equivalent PowerShell task runner (Windows)
 ├── artifacts/                   # generated at runtime (git-ignored)
@@ -159,7 +182,7 @@ tw50_pipeline/
 │   ├── dflood/{feature_selection,feature_scaler,models,pred}/
 │   └── des/{pred,models,backtest}/
 ├── evaluation/                  # shipped back-test CSVs + figure regen script
-└── dqn/                         # optional DQN benchmark using DES output
+└── dqn/                         # Stage 4: paper-aligned Double DQN execution
 ```
 
 ## Install
@@ -359,7 +382,7 @@ python -c "from pathlib import Path; ids = ['2330','2454']; missing = [s for s i
 ## Notes and caveats
 
 - **Prices are user-supplied.** `tw50_des.py` reads `prices/<stock_id>.csv` with columns `Date,Open,High,Low,Close,Volume`. Use `fetch_prices.py` (yfinance) or bring your own source. Without a price CSV, Stage 3 still saves the DES/RF probability files but skips the backtest.
-- **Walk-forward rolling constants**: `WF_N_SPLITS=5`, `WF_VAL_RATIO=0.2`, `WF_GAP=20` trading days between train and validation. The gap is set to be `>=` the 20-day label horizon so that no train sample's forward-20-day label window overlaps any validation sample. All three constants are overridable via environment variables of the same name (e.g. `WF_GAP=30 python tw50_flood.py ...`).
+- **Walk-forward rolling constants**: `WF_N_SPLITS=5`, `WF_VAL_RATIO=0.2`, and `WF_GAP=50` anchor intervals. The effective gap implements the paper equation as a 20-day label horizon followed by a separate 30-trading-day purge. `WF_GAP` remains overridable for diagnostics, but values below 50 are not the revised-paper protocol.
 - **Stage 2 emits both train and test predictions.** By default the DES-train window (2020-01-01..2023-12-31) is predicted by the same ATT that was trained on 2010-2023, so those rows are *in-sample* w.r.t. the ATT. The reported out-of-sample metrics still come from the strictly held-out 2024-01-01..2026-03-31 window, but the KNORA-E meta-learner does see in-sample ATT probabilities during its fit.
   - Pass `--des-oof` to `tw50_dflood.py` to instead train an inner ATT on `TRAIN_START..(DES_TRAIN_START - WF_GAP)` and use it to predict the DES-train window. The resulting rows are tagged `source='oof'` in the CSV. Test-window rows are always tagged `source='test'` and produced by the final ATT trained on the full 2010-2023 window.
   - Pass `--strict-oof` to `tw50_des.py` to abort the run if any aspect's DES-train rows are not `source='oof'` (a leakage guard for reproducibility scripts).
@@ -383,9 +406,9 @@ python -c "from pathlib import Path; ids = ['2330','2454']; missing = [s for s i
 | yfinance returns EMPTY for a ticker                                  | The Yahoo symbol is `<id>.TW`. Delisted or newly listed stocks may lack coverage; check on finance.yahoo.com.    |
 | TF logs `Cannot dlopen some GPU libraries` in WSL                    | Export `LD_LIBRARY_PATH` to include the pip nvidia lib dirs before launching Python.                             |
 
-## Optional — DQN benchmark using DES output
+## Stage 4 — Double DQN execution
 
-The `dqn/` subfolder contains a Deep Q-Network trader adapted from `tunglich/Market-Timing-DQN`, using the DESQ pipeline output as the `<DES>` feature. See [dqn/README.md](dqn/README.md) for its own quick-start.
+The `dqn/` subfolder contains the revised paper's execution layer, adapted from `tunglich/Market-Timing-DQN` and driven by the Stage 3 `<DES>` feature. Its defaults now use Double-DQN targets, prioritised replay, $\gamma=0.99$, a 5,000-step hard target update, and Taiwan buy/sell costs of 0.1425%/0.4425%. See [dqn/README.md](dqn/README.md).
 
 ## How to cite
 

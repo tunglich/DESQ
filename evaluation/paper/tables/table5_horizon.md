@@ -1,0 +1,12 @@
+# Table 5. Signal-horizon sensitivity
+
+Evidence status is row-specific; `reported_only` is a PDF transcription.
+
+| metric | h5 | h20 | h60 | unit | evidence_status | source_reference |
+| --- | --- | --- | --- | --- | --- | --- |
+| Round trips (per stock/yr) | 13.9 | 6.0 | 2.6 | count | reported_only | PDF p17 Table 5 |
+| Avg. holding period | 10 | 24 | 47 | days | reported_only | PDF p17 Table 5 |
+| Time-in-market | 53 | 55-60 | 57 | percent | reported_only | PDF p17 Table 5 |
+| One-way turnover | 6.0 | 2.6 | 1.2 | percent_per_day | reported_only | PDF p17 Table 5 |
+| Cost drag | 8.1 | 3.5 | 1.5 | percentage_points_per_year | reported_only | PDF p17 Table 5 |
+| Net cumulative return | 76.8 | 129.0 | 81.3 | percent | reported_only | PDF p17 Table 5 |

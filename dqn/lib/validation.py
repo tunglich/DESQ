@@ -6,7 +6,7 @@ from lib import environ
 
 
 def validation_run(env, net, episodes=100, device="gpu", epsilon=0.02,
-                   commission_buy=0.10, commission_sell=0.34, comission=None):
+                   commission_buy=0.1425, commission_sell=0.4425, comission=None):
     if comission is not None:
         commission_buy = comission
         commission_sell = comission

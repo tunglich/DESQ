@@ -1,8 +1,12 @@
-# DQN market-timing on DES-model output
+# Stage 4: Signal-Conditioned Double DQN
 
-Deep Q-Network (1D-CNN, `<DES> + <OHLC>` features, `Skip / Buy / Close`
-actions) applied to the TW-50 universe, adapted from
+Double Deep Q-Network (1D-CNN, `<DES> + <OHLC>` features, position state,
+running P&L, and `Skip / Buy / Close` actions) applied to the TW-50 universe, adapted from
 [tunglich/Market-Timing-DQN](https://github.com/tunglich/Market-Timing-DQN).
+
+This directory is the formal Stage 4 execution layer of DESQ. The rule-based
+backtest emitted by `../tw50_des.py` remains available as a diagnostic but is
+not the revised paper's final trading strategy.
 
 ## What changed vs the reference repo
 
@@ -20,7 +24,12 @@ actions) applied to the TW-50 universe, adapted from
    per (symbol, window). DESQ produces exactly one DES signal per stock, so
    the `window` concept doesn't apply and has been removed from
    `build_dqn_data.py`, `walk_forward.py`, `train_dqn.py`, and
-   `backtest.py`. Everything else in the DQN pipeline is unchanged.
+  `backtest.py`.
+
+3. **Revised-paper learning contract.** The active trainer uses Double-DQN
+  targets with prioritised replay, $\gamma=0.99$, hard target synchronization
+  every 5,000 environment steps, epsilon decay from 1.0 to 0.05 over 100,000
+  steps, and Taiwan costs of 0.1425% on buys and 0.4425% on sells.
 
 ## Layout
 
@@ -61,10 +70,10 @@ dqn/
    cd dqn
    ```
 
-   As of `303d138`, `tw50_dflood.py` emits DES predictions covering
-   **2020-01-02..2026-03-30** (in-sample DES-train window + OOS test window),
-   which gives the DQN 5 folds of pre-test walk-forward history plus a clean
-   held-out test window. See "Coverage note" below.
+  The revised-paper preset requires DES predictions covering all five Table 3
+  windows, beginning in 2005, plus the sealed 2024-2026Q1 holdout. The compact
+  Stage 2 output currently begins in 2020 and is therefore insufficient for a
+  paper reproduction. See "Coverage note" below.
 
 2. OHLCV files must live at `../prices/<sym>.csv` with columns
    `Date, Open, High, Low, Close, Volume`. `../fetch_prices.py` populates
@@ -133,21 +142,14 @@ Mean model_pct=+59.18%   Mean bh_pct=+201.25%   Mean excess=-142.08%
 not a production result. See "Production settings" below for the intended
 training budget.
 
-Also note step 3 uses just fold 0. `build_dqn_data.py` output looked like:
+Also note step 3 uses just fold 0. A paper-complete dry run reports the five
+Table 3 windows. Fold 2 follows the explicit example in Section III.F:
 
 ```text
-  2330: 1511 rows  2020-01-02..2026-03-30  DES=1: 728/1511
-```
-
-and walk-forward dry-run reported:
-
-```text
-2330_all.csv: 973 pre-test rows (2020-01-02 ~ 2023-12-29)
-  fold 0: val 2020-01-02 ~ 2020-10-21 (194 rows), train 779 rows
-  fold 1: val 2020-10-22 ~ 2021-08-10 (195 rows), train 778 rows
-  fold 2: val 2021-08-11 ~ 2022-05-30 (194 rows), train 779 rows
-  fold 3: val 2022-05-31 ~ 2023-03-17 (195 rows), train 778 rows
-  fold 4: val 2023-03-20 ~ 2023-12-29 (195 rows), train 778 rows
+fold 2 window: 2007-01-02 ~ 2017-12-29
+  final training anchor: 2015-08-11
+  label end: 2015-09-08
+  validation anchors: 2015-10-21 ~ 2017-12-29
 ```
 
 ## Production settings — one stock
@@ -168,6 +170,21 @@ cp \"$(cat /tmp/best.txt)\" trained_models/2330_all.data
 
 python src/backtest.py --symbol 2330
 ```
+
+The revised paper evaluates nine random seeds and reports the median-return
+agent. That orchestration is not yet automated here, so a single promoted
+checkpoint is an implementation run, not a reproduction of the reported
+headline return. Track remaining evidence gaps in
+[`../docs/paper_alignment.md`](../docs/paper_alignment.md).
+
+## Focused tests
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The tests include a discriminating Double-DQN case where the online and target
+networks prefer different next actions, plus assertions for the paper defaults.
 
 ## Batch — full TW-50
 
@@ -192,21 +209,15 @@ python src/backtest.py --all --out backtest_summary.csv
 
 ## Coverage note
 
-The parent-repo Stage 2 (`../tw50_dflood.py`) now emits DES predictions for
-both the DES-train slice (2020-01-02..2023-12-31, in-sample w.r.t. the ATT
-sequence classifier) and the OOS test window (2024-01-01..2026-03-30). The
-DQN walk-forward folds sit entirely inside 2020..2023 and the test window
-sits entirely inside 2024..2026, so:
+The compact parent-repo Stage 2 (`../tw50_dflood.py`) emits DES predictions for
+2020-01-02..2023-12-31 and the OOS test window. This is enough for smoke tests,
+but not for the revised paper's 2005-2023 rolling windows. Production
+reproduction must first regenerate causal DES histories for every Table 3
+window. The 2024-01-02..2026-03-31 holdout remains sealed.
 
-- **DQN training is out-of-sample w.r.t. its own reward signal** (walk-forward
-  train/val split of pre-test rows).
-- **The DES feature is in-sample w.r.t. the ATT classifier** on the DQN
-  training rows, but *out-of-sample* on the DQN test rows.
-
-This is a compromise so that the ~4 years of pre-test history are usable at
-all — extending the ATT training window backward before 2010 or shrinking
-its cut-off before 2020 would both undermine other parts of the DESQ
-benchmark. Treat DQN excess returns as a lower-bound diagnostic.
+- **Smoke runs are implementation checks**, not paper reproductions.
+- **Paper runs require causal specialist and DES outputs for 2005-2023**, with
+  a 20-day label horizon followed by the 30-trading-day purge.
 
 ## Data schema
 

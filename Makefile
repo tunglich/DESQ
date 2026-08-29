@@ -1,7 +1,7 @@
 # =============================================================================
 # TW-50 DESQ pipeline — Makefile
 # =============================================================================
-# Wraps the three pipeline stages plus figure/table regeneration so reviewers
+# Wraps the four pipeline stages plus figure/table regeneration so reviewers
 # can reproduce the paper's results with a single `make` command per artifact.
 #
 # Usage
@@ -36,6 +36,7 @@ FLAG_STOCKS   ?= 2330,2454
 TRIALS        ?= 12
 EPOCHS        ?= 80
 DFLOOD_EPOCHS ?= 120
+DQN_HOURS     ?= 1.5
 BATCH         ?= 64
 SMOKE_TRIALS  ?= 2
 SMOKE_EPOCHS  ?= 3
@@ -44,8 +45,8 @@ SWEEP_SEEDS   ?= 42,123,456,789,2024
 SWEEP_STAGES  ?= 3
 
 .PHONY: help smoke smoke-oof full-2330 full-flagships full-top50 \
-        stage1 stage2 stage2-oof stage3 stage3-strict \
-        prices figures figures-us tables preflight lint \
+		stage1 stage2 stage2-oof stage3 stage3-strict stage4-data stage4-train stage4-backtest \
+	prices figures figures-us tables preflight lint monitor-smoke monitor-stage2 \
         seed-sweep \
         rerun-baselines verify-baselines snapshot-baselines \
         verify-prices hash-shipped manifest-check repro \
@@ -59,6 +60,11 @@ help:
 	@echo "    make smoke-oof    # smoke + --des-oof (leakage-free DES fit)"
 	@echo "    make full-2330    # production settings for TSMC"
 	@echo "    make seed-sweep   # multi-seed Stage 3 sweep -> mean +/- std CSV"
+	@echo "    make stage4-data  # build Double-DQN input from Stage 3 output"
+	@echo "    make stage4-train # train all five DQN walk-forward folds"
+	@echo "    make stage4-backtest # evaluate a promoted Stage 4 checkpoint"
+	@echo "    make monitor-smoke # synthetic Appendix-F Level 0-3 smoke"
+	@echo "    make monitor-stage2 # immutable Stage 2 snapshot for STOCK"
 	@echo "    make repro        # reviewer path: hashes + yfinance check + smoke"
 	@echo "    make figures      # regenerate paper Fig 17 from shipped CSVs"
 	@echo "    make preflight    # environment sanity checks"
@@ -100,6 +106,21 @@ stage3:
 # Aborts if any aspect's DES-train slice was produced in-sample.
 stage3-strict:
 	$(PY) tw50_des.py    --stock-ids $(STOCK) --no-show --strict-oof
+
+stage4-data:
+	cd dqn && $(PY) build_dqn_data.py --stock-ids $(STOCK) --overwrite
+
+stage4-train:
+	cd dqn && $(PY) src/train_dqn.py --symbol $(STOCK) --fold all --hours $(DQN_HOURS)
+
+stage4-backtest:
+	cd dqn && $(PY) src/backtest.py --symbol $(STOCK) --out backtest_summary.csv
+
+monitor-smoke:
+	$(PY) -m monitoring smoke
+
+monitor-stage2:
+	$(PY) -m monitoring collect-stage2 --stock-id $(STOCK)
 
 # ---------------------------------------------------------------------------
 # Seed sweep (multi-seed backtest -> mean +/- std for paper Table)
@@ -185,11 +206,10 @@ figures-us:
 	$(PY) us/baselines/combined/combined_comparison.py
 
 tables:
-	@echo "Regenerating summary tables from shipped CSVs ..."
-	@$(PY) -c "import pandas as pd, glob; \
-files = sorted(glob.glob('evaluation/backtest_*.csv')); \
-rows = [(f, pd.read_csv(f).iloc[-1].to_dict()) for f in files]; \
-[print(f'{f}: {r}') for f, r in rows]"
+	$(PY) evaluation/paper/generate_tables.py
+
+tables-check:
+	$(PY) -m unittest discover -s evaluation/paper/tests -v
 
 # ---------------------------------------------------------------------------
 # Cleanup

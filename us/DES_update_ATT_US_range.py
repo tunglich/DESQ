@@ -445,7 +445,7 @@ def update_DES(tickers, train_end, price_start=DEFAULT_PRICE_START, price_end=No
                     model = joblib.load(des_pkl)
                 else:
                     base_classifier = findBestRF(X_train, y_train)
-                    model = KNORAE(pool_classifiers=base_classifier, k=10, DFP=True)
+                    model = KNORAE(pool_classifiers=base_classifier, k=30, DFP=True)
                     model.fit(X_train, y_train)
                     joblib.dump(base_classifier, rf_pkl)
                     joblib.dump(model, des_pkl)
