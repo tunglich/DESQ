@@ -85,6 +85,12 @@ jobs:
                        'us/baselines/verify_baselines.py']]; \
             print('LINT OK')"
 
+      - name: Revised-paper monitoring and table tests
+        working-directory: ${{ steps.root.outputs.root }}
+        run: |
+          python -m unittest discover -s monitoring/tests -v
+          python -m unittest discover -s evaluation/paper/tests -v
+
       - name: Cross-check shipped prices vs yfinance (2330)
         working-directory: ${{ steps.root.outputs.root }}
         run: |
@@ -97,6 +103,35 @@ jobs:
           name: verify-prices-report
           path: ${{ steps.root.outputs.root }}/reproducibility/verify_public_prices.csv
           if-no-files-found: ignore
+
+  dqn-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Locate pipeline root
+        id: root
+        run: |
+          if [ -d tw50_pipeline ]; then
+            echo "root=tw50_pipeline" >> "$GITHUB_OUTPUT"
+          else
+            echo "root=." >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: ${{ steps.root.outputs.root }}/dqn/requirements.txt
+
+      - name: Install Stage 4 dependencies
+        working-directory: ${{ steps.root.outputs.root }}/dqn
+        run: pip install -r requirements.txt
+
+      - name: Test Signal-Conditioned Double DQN
+        working-directory: ${{ steps.root.outputs.root }}/dqn
+        run: python -m unittest discover -s tests -v
 
   # ---------------------------------------------------------------
   # End-to-end smoke (~15-20 min): Stage 1 -> 2 -> 3 on 2330, seed=42.

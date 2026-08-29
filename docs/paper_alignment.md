@@ -34,6 +34,7 @@ Authority: the 30-page `Paper2_IEEEAccess_appendixD_added.pdf`, SHA-256 `7b474ee
 - `implemented`: the active code path matches the stated contract and has a focused check where practical.
 - `reported-only`: the number appears in the revised paper but has no reproducible committed artifact in this repository.
 - `legacy diagnostic`: a retained result from DES/CUSUM or signal-pattern execution; it must not be labeled DQN or MDQN.
-- Historical release notes and the `v1.0-desq` tag remain unchanged.
+- Historical release notes and the `v1.0-desq` tag remain unchanged; the
+  revised-paper implementation is released as `v1.1-desq`.
 
 Run `python evaluation/paper/generate_tables.py` to rebuild CSV, Markdown, LaTeX, validation reports, and the SHA-256 manifest. Detailed table-level limitations are documented in `evaluation/paper/README.md`.

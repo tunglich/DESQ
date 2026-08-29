@@ -17,3 +17,4 @@ deslib==0.3.7
 # Visualization
 matplotlib>=3.8
 tqdm>=4.66
+yfinance>=0.2

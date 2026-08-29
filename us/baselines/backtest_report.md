@@ -1,5 +1,9 @@
-# Backtest Report — DESQ vs Three Literature Baselines
+# Legacy Backtest Report — DES+CUSUM vs Three Literature Baselines
 ## Cross-universe US-equity out-of-sample study, 2024-01-02 → 2026-03-30
+
+> This retained report predates the revised paper's Double-DQN execution
+> layer. Its DESQ display label means legacy DES+CUSUM, not the DDQN strategy
+> reported in revised-paper Tables 6-7.
 
 **Author**: Tung Long (PhD thesis appendix)
 **Report date**: 2026-07-02

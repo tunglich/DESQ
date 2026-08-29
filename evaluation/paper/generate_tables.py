@@ -41,11 +41,8 @@ TABLE_SPECS = (
 
 
 def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+    canonical_bytes = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(canonical_bytes).hexdigest()
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
@@ -58,7 +55,7 @@ def write_rows(path: Path, rows: list[dict[str, object]]) -> None:
         raise ValueError(f"refusing to write empty table: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
@@ -83,7 +80,7 @@ def render_markdown(path: Path, title: str, rows: list[dict[str, str]]) -> None:
              "| " + " | ".join("---" for _ in fields) + " |"]
     lines.extend("| " + " | ".join(markdown_escape(row[field]) for field in fields) + " |"
                  for row in rows)
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 def render_latex(path: Path, number: int, title: str, rows: list[dict[str, str]]) -> None:
@@ -98,7 +95,7 @@ def render_latex(path: Path, number: int, title: str, rows: list[dict[str, str]]
     lines.extend(" & ".join(latex_escape(row[field]) for field in fields) + r" \\"
                  for row in rows)
     lines.extend([r"\bottomrule", r"\end{longtable}", r"\end{landscape}"])
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 def validate_statuses(rows: list[dict[str, str]], source: Path) -> None:
@@ -175,7 +172,7 @@ def _compound_selected(returns: pd.Series, mask: pd.Series) -> float:
 
 
 def validate_table8(rows: list[dict[str, str]]) -> list[dict[str, object]]:
-    path = ROOT.parent / "evaluation/backtest_portfolio_port_market_cf_t50_curve_2024-01-01_2026-03-31.csv"
+    path = ROOT / "evaluation/backtest_portfolio_tw50.csv"
     frame = pd.read_csv(path, parse_dates=["Date"]).set_index("Date")
     model_wealth = 1.0 + frame["Model_CumRet"]
     benchmark_wealth = 1.0 + frame["Benchmark_CumRet"]
@@ -279,7 +276,11 @@ def main() -> int:
     }
 
     manifest_path = PAPER_DIR / "tables_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     print("Generated and audited revised-paper Tables 3-10")
     return 0
 

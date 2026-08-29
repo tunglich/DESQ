@@ -6,6 +6,7 @@ import torch
 
 from src.train_dqn import calc_loss, default_cfg
 from src import backtest
+from lib import common
 
 
 class TrainDqnTest(unittest.TestCase):
@@ -28,6 +29,8 @@ class TrainDqnTest(unittest.TestCase):
         self.assertEqual(cfg["epsilon_steps"], 100_000)
         self.assertEqual(cfg["commission_buy"], 0.1425)
         self.assertEqual(cfg["commission_sell"], 0.4425)
+        self.assertEqual(common.HYPERPARAMS["Conv1D"]["target_net_sync"], 5000)
+        self.assertEqual(common.HYPERPARAMS["Conv1D"]["epsilon_frames"], 100_000)
 
     def test_loss_uses_online_action_and_target_value(self):
         online = torch.nn.Linear(1, 2, bias=False)

@@ -5,9 +5,10 @@ Extension of the TW-50 pipeline in this repo to US equities. Same
 methodology, adapted to US markets with a rolling walk-forward
 validation window (train up to 2023-12-31, test 2024-01-02 → 2026-03-31).
 
-Reported as **DESQ** (*Dynamic-flooding Transformer Ensembles*) in the
-combined portfolio backtests. Files on disk are still named `DES` for
-historical continuity.
+The shipped portfolio backtests predate the revised paper's Double-DQN
+execution layer. They retain the historical **DESQ** display label and `DES`
+filenames, but are legacy DES+CUSUM diagnostics rather than reproductions of
+the revised-paper US results.
 
 ## End-to-end training pipeline
 
@@ -36,7 +37,7 @@ us/
 ├── Backtest_Portfolio_US.py              # Portfolio backtest engine (price/market-weighted)
 ├── run_us_daily_pipeline.py              # End-to-end daily inference driver
 │
-├── baselines/                            # 4-method × 3-universe paper reproduction
+├── baselines/                            # 4-method × 3-universe legacy comparison
 │   ├── combined/                         # Combined 1×3 chart + stats CSV/MD
 │   ├── dsr_yang/                         # Yang 2018 IEEE — Dynamic Stock Recommendation
 │   ├── mi_abbade/                        # Abbade & Costa 2026 — MACE (Almgren-Chriss)
@@ -52,7 +53,12 @@ us/
 └── .github/skills/                       # Copilot skills (pipeline docs)
 ```
 
-## Portfolio backtest — total return, 2024-01-02 → 2026-03-30
+## Legacy portfolio diagnostic — total return, 2024-01-02 → 2026-03-30
+
+The revised paper reports DDQN returns of 67.4% (Dow 30), 82.8% (S&P 100),
+and 83.5% (NASDAQ 100). Those values are `reported_only` because the matching
+checkpoints and action paths are not shipped; see
+[`../evaluation/paper/tables/table6_cross_market.csv`](../evaluation/paper/tables/table6_cross_market.csv).
 
 | Method | Dow 30 | S&P 100 | NASDAQ 100 |
 |---|---:|---:|---:|

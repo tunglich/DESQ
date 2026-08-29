@@ -62,8 +62,8 @@ PALETTE = {
 INDEX_COLOUR = "#333333"
 
 
-WS = Path(r"d:\US_stock")
-OUT_DIR = WS / "baselines" / "combined"
+WS = Path(__file__).resolve().parents[2]
+OUT_DIR = Path(__file__).resolve().parent
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 TRADE_START = pd.Timestamp("2024-01-02")
@@ -174,7 +174,21 @@ def _load_index(ticker: str) -> Optional[pd.Series]:
     return df["Close"].loc[TRADE_START:TRADE_END]
 
 
+def _load_shipped_comparison(u: str) -> Dict[str, pd.Series]:
+    path = OUT_DIR / f"{u}_comparison.csv"
+    if not path.exists():
+        return {}
+    frame = pd.read_csv(path, index_col="date", parse_dates=True)
+    return {
+        name: INITIAL_CAPITAL * (1.0 + frame[name].dropna() / 100.0)
+        for name in frame.columns
+    }
+
+
 def _load_universe(u: str) -> Dict[str, pd.Series]:
+    shipped = _load_shipped_comparison(u)
+    if shipped:
+        return shipped
     U = UNIVERSES[u]
     series: Dict[str, pd.Series] = {}
     if (s := _load_des(U["des_csv"])) is not None:
@@ -258,7 +272,7 @@ def _plot_panel(ax, series: Dict[str, pd.Series], universe_label: str,
     if "DESQ" in cum.columns:
         s = cum["DESQ"].dropna()
         ax.plot(s.index, s.values,
-                label="DESQ",
+            label="Legacy DES+CUSUM",
                 color=colours["DESQ"], linewidth=2.4,
                 alpha=1.0, zorder=5)
 
@@ -318,13 +332,15 @@ def main() -> int:
         cum = _plot_panel(ax, series, U["label"], U["index_ticker"],
                           show_ylabel=True)
         ax.legend(loc="upper left")
-        fig.suptitle(f"Four Methods vs {U['index_ticker']}   "
+        fig.suptitle(f"Legacy DES+CUSUM diagnostic vs {U['index_ticker']}   "
                      f"{TRADE_START.date()} \u2192 {TRADE_END.date()}",
                      y=0.995, fontsize=11)
         fig.tight_layout()
         png = OUT_DIR / f"{u}_comparison.png"
         fig.savefig(png, dpi=160); plt.close(fig)
-        cum.to_csv(OUT_DIR / f"{u}_comparison.csv", float_format="%.6f")
+        cum.to_csv(
+            OUT_DIR / f"{u}_comparison.csv", float_format="%.6f", lineterminator="\n"
+        )
         print(f"[OK] {u}: {png.name} + {u}_comparison.csv")
 
     # ---- Main 1×3 combined figure ----------------------------------------
@@ -343,7 +359,7 @@ def main() -> int:
         for hi, li in zip(h, l):
             if li not in seen:
                 seen.add(li); all_h.append(hi); all_l.append(li)
-    fig.suptitle(f"Cumulative Return — Four Methods across three universes   "
+    fig.suptitle(f"Legacy DES+CUSUM diagnostic across three universes   "
                  f"{TRADE_START.date()} \u2192 {TRADE_END.date()}",
                  y=1.02, fontsize=12)
     fig.legend(all_h, all_l, loc="lower center", ncol=len(all_l),
@@ -373,7 +389,7 @@ def main() -> int:
             "sharpe", "sortino", "max_dd_%", "calmar", "days"]
     stats = stats.reindex(columns=cols)
     stats.to_csv(OUT_DIR / "combined_stats.csv", index=False,
-                 float_format="%.4f")
+                 float_format="%.4f", lineterminator="\n")
     print(f"[OK] wrote {OUT_DIR / 'combined_stats.csv'}")
 
     # ---- Markdown snapshot ----------------------------------------------
@@ -393,7 +409,7 @@ def main() -> int:
                 f"{_f(r['max_dd_%'])} | {_f(r['calmar'])} |"
             )
     (OUT_DIR / "combined_stats.md").write_text("\n".join(md_lines) + "\n",
-                                                encoding="utf-8")
+                                                encoding="utf-8", newline="\n")
     print(f"[OK] wrote {OUT_DIR / 'combined_stats.md'}")
 
     print("\n=== Summary (total_ret_%) ===")

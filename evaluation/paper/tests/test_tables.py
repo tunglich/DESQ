@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -31,6 +32,14 @@ class PaperTablesTest(unittest.TestCase):
 			for suffix in ("csv", "md", "tex"):
 				self.assertTrue(any((PAPER_DIR / "tables").glob(f"{prefix}*.{suffix}")))
 
+	def test_source_hash_is_newline_independent(self):
+		with tempfile.TemporaryDirectory() as directory:
+			lf_path = Path(directory) / "lf.csv"
+			crlf_path = Path(directory) / "crlf.csv"
+			lf_path.write_bytes(b"a,b\n1,2\n")
+			crlf_path.write_bytes(b"a,b\r\n1,2\r\n")
+			self.assertEqual(generate_tables.sha256(lf_path), generate_tables.sha256(crlf_path))
+
 	def test_table6_core_metrics_reproduce_from_shipped_nav(self):
 		rows = read_csv(PAPER_DIR / "validation/table6_shipped_nav_check.csv")
 		core = {"total_return_pct", "excess_return_pct", "annual_return_pct",
@@ -41,6 +50,8 @@ class PaperTablesTest(unittest.TestCase):
 
 	def test_table8_peak_to_trough_intervals(self):
 		rows = read_csv(PAPER_DIR / "validation/table8_legacy_nav_discrepancy.csv")
+		self.assertEqual({row["legacy_source"] for row in rows},
+						 {"backtest_portfolio_tw50.csv"})
 		self.assertEqual([int(row["legacy_days"]) for row in rows], [540, 495, 15, 30])
 		self.assertTrue(all(abs(float(row["legacy_benchmark_pct"]) -
 								float(row["paper_benchmark_pct"])) <= 0.05 for row in rows))

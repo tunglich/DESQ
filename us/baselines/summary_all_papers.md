@@ -1,4 +1,9 @@
-# Portfolio-Backtest Baselines — Full 4×3 Paper Reproduction Matrix
+# Legacy Portfolio-Backtest Baselines — 4×3 Diagnostic Matrix
+
+> This document records the pre-revision DES+CUSUM comparison. Its DESQ-labeled
+> rows are not Signal-Conditioned Double-DQN runs and must not be cited as the
+> revised paper's results. Canonical revised-paper values and evidence status
+> are in `../../evaluation/paper/tables/table6_cross_market.csv`.
 
 Trade window **2024-01-02 → 2026-03-30**, initial capital **$1,000,000**,
 three universes (Dow 30 / S&P 100 / NASDAQ 100), four methods each.

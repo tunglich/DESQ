@@ -3,7 +3,7 @@
 [![CI](https://github.com/tunglich/DESQ/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tunglich/DESQ/actions/workflows/ci.yml)
 [![DOI](https://zenodo.org/badge/DOI/pending.svg)](https://doi.org/pending) <!-- replace with real DOI after Zenodo mints it -->
 
-> **Paper snapshot**: this repository accompanies the IEEE Access submission *"Dynamic-Flooding Transformer Ensembles for Reinforcement-Learning-Based Equity Market Timing"*. The exact code state used in the paper is tagged as [`v1.0-desq`](https://github.com/tunglich/DESQ/releases/tag/v1.0-desq); that tag is archived on Zenodo with a persistent DOI (see [How to cite](#how-to-cite)). The `main` branch may contain post-submission changes; check out the tag for byte-exact reproduction.
+> **Revised-paper release**: this repository accompanies the IEEE Access submission *"Dynamic-Flooding Transformer Ensembles for Reinforcement-Learning-Based Equity Market Timing"*. The paper-aligned code and provenance bundle are released as [`v1.1-desq`](https://github.com/tunglich/DESQ/releases/tag/v1.1-desq). The earlier `v1.0-desq` tag remains an immutable pre-revision reviewer snapshot and is not authoritative for revised-paper values.
 
 A market-timing framework for the TWSE Top-50 constituents that stacks:
 
@@ -62,7 +62,7 @@ The CSV schemas are:
 - Single-stock panels (`backtest_2330.csv`, `backtest_2454.csv`): `Date, Model_Return_Pct, Stock_Return_Pct, Model_Return_Ratio, Stock_Return_Ratio`.
 - Portfolio panel (`backtest_portfolio_tw50.csv`): `Date, Model_CumRet, Benchmark_CumRet, Model_CumRet_Pct, Benchmark_CumRet_Pct`.
 
-### US extension — four-method paper reproduction
+### US extension — retained four-method legacy diagnostic
 
 The shipped US comparison is also **legacy DES+CUSUM evidence**. It has not yet been regenerated through the revised paper's Double-DQN execution layer and is retained as a diagnostic comparison only. See the [US extension README](us/README.md) and [alignment ledger](docs/paper_alignment.md).
 
@@ -209,11 +209,8 @@ pip install -r requirements.txt        # tested compatible ranges
 pip install -r requirements-lock.txt   # exact versions (pip freeze snapshot)
 ```
 
-If you want the price fetcher (Stage 3 backtest), install `yfinance` in addition:
-
-```powershell
-pip install yfinance
-```
+The root requirements include `yfinance`, which is used by the price fetcher
+and public-price reproducibility check.
 
 TensorFlow 2.21 uses the GPU on Linux/WSL if CUDA is available; on Windows it will fall back to CPU (which is fine for smoke testing).
 
@@ -413,9 +410,9 @@ The `dqn/` subfolder contains the revised paper's execution layer, adapted from 
 ## How to cite
 
 Please cite the specific release DOI rather than the head of the main branch,
-so reviewers can reproduce the exact bytes you ran against. The `v1.0-desq`
-tag is the reviewer snapshot; every future release will mint a fresh Zenodo
-DOI while the "concept DOI" links them all.
+so reviewers can reproduce the exact bytes you ran against. The `v1.1-desq`
+tag is the revised-paper release; `v1.0-desq` remains the pre-revision
+reviewer snapshot. Zenodo's concept DOI links both immutable releases.
 
 **BibTeX** (replace `10.5281/zenodo.XXXXXXX` with the DOI printed on the
 Zenodo record once the release is minted):
@@ -423,15 +420,16 @@ Zenodo record once the release is minted):
 ```bibtex
 @software{chen_desq_2026,
   author    = {Chen, Tung-Li},
-  title     = {DESQ: Dynamic Ensemble Selection for Quantitative
-               Stock Selection (v1.0-desq)},
+  title     = {DESQ: Dynamic-Flooding Transformer Ensembles for
+               Reinforcement-Learning-Based Equity Market Timing
+               (v1.1-desq)},
   year      = {2026},
   publisher = {Zenodo},
-  version   = {v1.0-desq},
+  version   = {v1.1-desq},
   doi       = {10.5281/zenodo.XXXXXXX},
   url       = {https://doi.org/10.5281/zenodo.XXXXXXX},
-  note      = {Reviewer reproducibility kit for the IEEE Access
-               submission; see reproducibility/README.md}
+  note      = {Revised-paper implementation and evidence bundle for the
+               IEEE Access submission}
 }
 ```
 

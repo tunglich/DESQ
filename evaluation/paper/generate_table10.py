@@ -76,7 +76,9 @@ def inventory(feature_dir: Path = FEATURE_DIR) -> tuple[
 def write_csv(path: Path, rows: list[dict[str, object]], fieldnames: list[str] | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames or list(rows[0]))
+        writer = csv.DictWriter(
+            handle, fieldnames=fieldnames or list(rows[0]), lineterminator="\n"
+        )
         writer.writeheader()
         writer.writerows(rows)
 
@@ -99,7 +101,7 @@ def write_markdown(path: Path, rows: list[dict[str, str | int]]) -> None:
         f"| **Total** | **{sum(int(row['feature_count']) for row in rows)}** |  | "
         "Five domain-informed groups. |  | **reproduced** |"
     )
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 def latex_escape(value: str) -> str:
@@ -129,7 +131,7 @@ def write_latex(path: Path, rows: list[dict[str, str | int]]) -> None:
         r"\end{tabular}",
         r"\end{table*}",
     ])
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 def main() -> int:

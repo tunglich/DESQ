@@ -1,6 +1,6 @@
 {
-  "title": "DESQ: Dynamic Ensemble Selection for Quantitative Stock Selection (v1.0-desq)",
-  "description": "Reference implementation and reviewer reproducibility kit for the DES-based quantitative stock-selection pipeline described in the IEEE Access submission. This v1.0-desq snapshot ships SHA-256 fingerprints of the Taiwan-50 features, a yfinance cross-check for the 2330 canary prices, a 3-stage smoke pipeline (Stage-1 CUSUM + Stage-2 ATT/D-flood + Stage-3 DES), and a GitHub Actions workflow that re-runs the falsifiable checks on every push.",
+  "title": "DESQ: Dynamic-Flooding Transformer Ensembles for Reinforcement-Learning-Based Equity Market Timing (v1.1-desq)",
+  "description": "Reference implementation for the revised IEEE Access paper. This v1.1-desq release adds paper-aligned Signal-Conditioned Double DQN execution, five rolling windows with a 50-anchor effective gap, canonical Tables 3-10 with evidence provenance, and Appendix F monitoring governance. Retained DES/CUSUM outputs are explicitly labeled legacy diagnostics rather than DDQN reproductions.",
   "upload_type": "software",
   "access_right": "open",
   "license": "MIT",
@@ -17,7 +17,9 @@
     "reproducible-research",
     "stock-selection",
     "tw50",
-    "ieee-access"
+    "ieee-access",
+    "double-dqn",
+    "model-monitoring"
   ],
   "related_identifiers": [
     {

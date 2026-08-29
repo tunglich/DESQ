@@ -150,7 +150,7 @@ def _resolve_validation_mode() -> str:
 VALIDATION_MODE = _resolve_validation_mode()
 WF_N_SPLITS = int(os.getenv('WF_N_SPLITS', '5'))
 WF_VAL_RATIO = float(os.getenv('WF_VAL_RATIO', '0.2'))
-WF_GAP = int(os.getenv('WF_GAP', '20'))
+WF_GAP = int(os.getenv('WF_GAP', '50'))
 WF_VAL_YEARS = float(os.getenv('WF_VAL_YEARS', '0'))
 WF_TRADING_DAYS_PER_YEAR = int(os.getenv('WF_TRADING_DAYS_PER_YEAR', '252'))
 WF_VAL_SAMPLES = int(round(WF_VAL_YEARS * WF_TRADING_DAYS_PER_YEAR)) if WF_VAL_YEARS > 0 else 0
@@ -658,7 +658,7 @@ class BlockingTimeSeriesSplit:
     Side effects:Side effects:
         None.
     """
-    def __init__(self, n_splits, val_ratio=0.25, gap=10):
+    def __init__(self, n_splits, val_ratio=0.25, gap=50):
         self.n_splits = n_splits
         self.val_ratio = val_ratio
         self.gap = gap
@@ -706,7 +706,7 @@ class WalkForwardSplit:
         None.
     """
 
-    def __init__(self, n_splits=5, val_ratio=0.2, gap=10, mode='rolling', val_samples=0):
+    def __init__(self, n_splits=5, val_ratio=0.2, gap=50, mode='rolling', val_samples=0):
         if n_splits < 1:
             raise ValueError("n_splits must be >= 1")
         if val_samples <= 0 and not 0 < val_ratio < 1:
@@ -776,7 +776,7 @@ def build_validation_splitter():
         )
     if VALIDATION_MODE != 'blocking':
         print(f"[WARN] Unknown VALIDATION_MODE={VALIDATION_MODE!r}, fallback to 'blocking'.")
-    return BlockingTimeSeriesSplit(n_splits=1)
+    return BlockingTimeSeriesSplit(n_splits=1, gap=WF_GAP)
 
 class FloodingModel(keras.Model):
     """Custom Keras model that applies the Flooding training strategy.
