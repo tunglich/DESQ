@@ -22,6 +22,7 @@ yellow highlights, and page-aware text differences.
 | Table 4, p. 16 | Static Flooding return 104.4%; No Flooding return 89.9%. | Static Flooding return 111.1%; No Flooding return 96.6%. | Update reported source rows and regenerate all table formats and manifests. |
 | Section IV.F, p. 16 | Passive Top-50 119.1%; DESQ excess +9.9 percentage points. | Passive Top-50 108.64%; DESQ excess +20.35 percentage points. | Canonical Appendix C Table C1 already contains 108.64% and +20.35 pp; align prose and references without inventing a NAV path. |
 | Appendices A/C/E/F | Tables 9/10/11/12 and Figures 18/20 used sequential numbering. | These are Tables A1/C1/E1/F1 and Figure B1; the bootstrap illustration is Figure D1. | Preserve compatibility filenames where useful, but use current paper labels and page references in generated content and documentation. |
+| Appendix B, Figure B1, p. 21 | The repository diagram extended the paper flow with an eighth DDQN box. | Figure B1 contains seven stages, a five-split/30-sample-gap walk-forward node, and ends with dynamic ensemble selection and back-test. | Regenerate `docs/training_pipeline.png` from the seven-stage renderer; document DDQN separately rather than inserting it into Figure B1. |
 
 ## Unchanged executable contract
 

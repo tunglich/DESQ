@@ -18,9 +18,13 @@ windows (4:1 train:validation ratio) with a 20-day label horizon and a further
 
 ## End-to-end training pipeline
 
-The eight stages below are the complete per-stock workflow, annotated with the exact script in this repository that implements each stage. The `next aspect` loop repeats stages 2–5 for each of the five feature aspects; after all five aspects are trained, stages 6–8 run once.
+The seven stages below reproduce the revised paper's Appendix B Figure B1,
+with repository script annotations added in blue. The `next aspect` loop
+repeats stages 2–5 for each of the five feature aspects; after all five aspects
+are trained, stages 6–7 run once. The paper's separate Signal-Conditioned
+Double DQN execution layer is documented under Stage 4 below.
 
-![End-to-end training pipeline (7 stages, with code annotations)](docs/training_pipeline.png)
+![Figure B1. End-to-end DESQ training and back-test pipeline (7 stages, with repository code annotations)](docs/training_pipeline.png)
 
 Regenerate the figure with `python docs/_render_training_pipeline.py`.
 

@@ -17,6 +17,8 @@ The PDF is an audit input and is not included in the release.
   return from 89.9% to 96.6%, preserving `reported_only` provenance.
 - Uses current Appendix A Table A1 and Appendix C Table C1 labels while
   preserving `table9_*` and `table10_*` compatibility filenames.
+- Regenerates Appendix B Figure B1 as the current seven-stage training and
+  back-test flow, including the five-split/30-sample-gap walk-forward node.
 - Realigns monitoring to Appendix F Eqs. (10)-(20) and Appendix G Eqs.
   (21)-(29). Level 0-3 candidate planning and promotion controls are explicitly
   repository-defined operational policy.
