@@ -5,8 +5,8 @@ from .decision import DecisionReport
 from .schemas import CandidatePlan, CandidateStep, content_hash
 
 
-def build_plan(report: DecisionReport, contract: dict) -> CandidatePlan:
-    allowed = set(contract["theta_allow"])
+def build_plan(report: DecisionReport, policy: dict) -> CandidatePlan:
+    allowed = set(policy["repository_update_extension"]["theta_allow"])
     stocks = report.affected_stocks
     aspects = report.affected_groups
     if report.level == 0:
@@ -35,5 +35,5 @@ def build_plan(report: DecisionReport, contract: dict) -> CandidatePlan:
         raise ValueError(f"unsupported decision level: {report.level}")
     changed = {parameter for step in steps for parameter in step.changed_parameters}
     if not changed <= allowed:
-        raise ValueError(f"candidate changes parameters outside Theta_allow: {sorted(changed - allowed)}")
+        raise ValueError(f"candidate changes parameters outside repository policy: {sorted(changed - allowed)}")
     return CandidatePlan(report.level, content_hash(report.payload()), steps)

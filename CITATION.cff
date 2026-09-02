@@ -10,16 +10,16 @@ authors:
     # orcid: "https://orcid.org/0000-0000-0000-0000"
 repository-code: "https://github.com/tunglich/DESQ"
 license: MIT
-version: "1.1-desq"
-date-released: "2026-08-29"
-# The DOI below is minted automatically by Zenodo when the v1.1-desq release
+version: "1.2-desq"
+date-released: "2026-09-03"
+# The DOI below is minted automatically by Zenodo when the v1.2-desq release
 # is published on GitHub. Replace <TO_BE_ASSIGNED_BY_ZENODO> with the string
 # Zenodo prints (e.g. "10.5281/zenodo.1234567") in the follow-up commit; the
 # release itself is immutable so the citation remains valid.
 identifiers:
   - type: doi
     value: "<TO_BE_ASSIGNED_BY_ZENODO>"
-    description: "Concept + version DOI for the v1.1-desq revised-paper release."
+    description: "Concept + version DOI for the v1.2-desq revised-paper release."
 keywords:
   - dynamic-ensemble-selection
   - deslib
@@ -31,7 +31,8 @@ abstract: >-
   DESQ is the reference implementation of the revised IEEE Access paper's
   four-stage market-timing framework: attention specialists, Dynamic
   Flooding, KNORA-E dynamic ensemble selection, and Signal-Conditioned
-  Double DQN. The v1.1-desq release adds canonical Tables 3-10 with explicit
-  evidence status, five paper-defined walk-forward windows, the 50-anchor
-  effective gap, paper-aligned trading costs, and Appendix F monitoring
-  governance. Legacy DES/CUSUM outputs remain clearly labeled diagnostics.
+  Double DQN. The v1.2-desq release aligns the code and provenance bundle to
+  the complete 28-page paper, adds per-stock nine-seed median-agent selection,
+  updates Appendix A1/C1 artifacts, and separates Appendix F alarms from
+  repository-defined update policy. Legacy DES/CUSUM outputs remain clearly
+  labeled diagnostics.

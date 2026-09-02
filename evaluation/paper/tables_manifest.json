@@ -8,7 +8,7 @@
       },
       "rows": 51,
       "source": "evaluation/paper/sources/table10_top50_flooding_reported.csv",
-      "source_sha256": "bfd2cdd86f5edc3aa08f900f2ad7345aa2895a5b3d7abbd17053371d5324029a",
+      "source_sha256": "9336061f343fea4b4046025755b3cd0bb1c951c21af7b4865bff773831f99162",
       "title": "Per-stock OOS returns and flooding ablations"
     },
     "3": {
@@ -26,7 +26,7 @@
       },
       "rows": 7,
       "source": "evaluation/paper/sources/table4_module_ablation_reported.csv",
-      "source_sha256": "9df0a5563f8cc7e73c6ef85ae30de168f7e8108656aca79930579b3565267785",
+      "source_sha256": "a9afd974fe31e934feac31e4256d2f9d036c86230ba279c57b6397523de5d26a",
       "title": "Module ablation on the TWSE Top-50"
     },
     "5": {

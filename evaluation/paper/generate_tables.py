@@ -38,6 +38,7 @@ TABLE_SPECS = (
     (8, "regime", "Regime-conditional performance"),
     (10, "top50_flooding", "Per-stock OOS returns and flooding ablations"),
 )
+PAPER_LABELS = {9: "A1", 10: "C1"}
 
 
 def sha256(path: Path) -> str:
@@ -83,7 +84,7 @@ def render_markdown(path: Path, title: str, rows: list[dict[str, str]]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
-def render_latex(path: Path, number: int, title: str, rows: list[dict[str, str]]) -> None:
+def render_latex(path: Path, number: int | str, title: str, rows: list[dict[str, str]]) -> None:
     fields = list(rows[0])
     columns = "l" * len(fields)
     lines = [r"\begin{landscape}", r"\begin{longtable}{" + columns + "}",
@@ -248,8 +249,9 @@ def main() -> int:
         validate_statuses(rows, source)
         output_csv = TABLES / f"table{number}_{slug}.csv"
         shutil.copyfile(source, output_csv)
-        render_markdown(TABLES / f"table{number}_{slug}.md", f"Table {number}. {title}", rows)
-        render_latex(TABLES / f"table{number}_{slug}.tex", number, title, rows)
+        paper_label = PAPER_LABELS.get(number, str(number))
+        render_markdown(TABLES / f"table{number}_{slug}.md", f"Table {paper_label}. {title}", rows)
+        render_latex(TABLES / f"table{number}_{slug}.tex", paper_label, title, rows)
         statuses = Counter(row["evidence_status"] for row in rows)
         manifest["tables"][str(number)] = {
             "title": title, "rows": len(rows), "source": source.relative_to(ROOT).as_posix(),
@@ -281,7 +283,7 @@ def main() -> int:
         encoding="utf-8",
         newline="\n",
     )
-    print("Generated and audited revised-paper Tables 3-10")
+    print("Generated and audited revised-paper Tables 3-8, A1, and C1")
     return 0
 
 

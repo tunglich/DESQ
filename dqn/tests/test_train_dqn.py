@@ -4,12 +4,20 @@ import unittest
 import numpy as np
 import torch
 
-from src.train_dqn import calc_loss, default_cfg
+from src.train_dqn import calc_loss, configure_seed, default_cfg
 from src import backtest
 from lib import common
 
 
 class TrainDqnTest(unittest.TestCase):
+    def test_seed_configuration_is_reproducible(self):
+        configure_seed(123)
+        first_numpy = np.random.random()
+        first_torch = torch.rand(1).item()
+        configure_seed(123)
+        self.assertEqual(np.random.random(), first_numpy)
+        self.assertEqual(torch.rand(1).item(), first_torch)
+
     def test_backtest_evaluator_hash_covers_sealed_costs(self):
         first = backtest.evaluator_hash(10, 0.1425, 0.4425, 0.0)
         second = backtest.evaluator_hash(10, 0.1425, 0.4425, 0.0)

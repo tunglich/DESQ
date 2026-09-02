@@ -155,26 +155,26 @@ fold 2 window: 2007-01-02 ~ 2017-12-29
 ## Production settings — one stock
 
 ```bash
-# 5-fold walk-forward, 1.5 h per fold (~7.5 h total on GPU).
-python src/train_dqn.py --symbol 2330 --fold all --hours 1.5
+# Train the nine paper agents in isolated directories and emit one candidate
+# row per seed, each pointing to that seed's best validation fold.
+for seed in {1..9}; do
+  python src/train_dqn.py --symbol 2330 --fold all --hours 1.5 \
+    --seed "$seed" --candidate-manifest "manifests/2330_seed_${seed}.csv"
+done
 
-# Pick the best fold's checkpoint (highest best_val-*.data across folds).
-python -c "
-from pathlib import Path
-best = max(Path('saves/2330_all').glob('fold_*/best_val-*.data'),
-           key=lambda p: float(p.stem.split('-')[1]))
-print(best)
-" | tee /tmp/best.txt
-mkdir -p trained_models
-cp \"$(cat /tmp/best.txt)\" trained_models/2330_all.data
+# Combine the rows and select rank 5 after sorting validation return per stock.
+awk 'FNR==1 && NR!=1{next}{print}' manifests/2330_seed_*.csv > manifests/2330_candidates.csv
+python src/select_median_agents.py --manifest manifests/2330_candidates.csv \
+  --output manifests/2330_selected.csv
 
 python src/backtest.py --symbol 2330
 ```
 
-The revised paper evaluates nine random seeds and reports the median-return
-agent. That orchestration is not yet automated here, so a single promoted
-checkpoint is an implementation run, not a reproduction of the reported
-headline return. Track remaining evidence gaps in
+The revised paper evaluates nine random seeds and selects the median
+validation-return agent independently per stock. The seeded training and
+selection contract is automated, but the nine-seed checkpoints and NAV paths
+are not shipped; therefore the reported headline return remains
+`reported_only`. Track remaining evidence gaps in
 [`../docs/paper_alignment.md`](../docs/paper_alignment.md).
 
 ## Focused tests

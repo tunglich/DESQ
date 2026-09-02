@@ -1,6 +1,6 @@
 {
-  "title": "DESQ: Dynamic-Flooding Transformer Ensembles for Reinforcement-Learning-Based Equity Market Timing (v1.1-desq)",
-  "description": "Reference implementation for the revised IEEE Access paper. This v1.1-desq release adds paper-aligned Signal-Conditioned Double DQN execution, five rolling windows with a 50-anchor effective gap, canonical Tables 3-10 with evidence provenance, and Appendix F monitoring governance. Retained DES/CUSUM outputs are explicitly labeled legacy diagnostics rather than DDQN reproductions.",
+  "title": "DESQ: Dynamic-Flooding Transformer Ensembles for Reinforcement-Learning-Based Equity Market Timing (v1.2-desq)",
+  "description": "Reference implementation for the revised IEEE Access paper. This v1.2-desq release aligns to the complete 28-page authority, adds deterministic per-stock nine-seed median-agent selection, updates Appendix A1/C1 artifacts, and separates Appendix F alarms from repository-defined update policy. Retained DES/CUSUM outputs remain explicitly labeled legacy diagnostics rather than DDQN reproductions.",
   "upload_type": "software",
   "access_right": "open",
   "license": "MIT",

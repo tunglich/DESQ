@@ -57,26 +57,24 @@ class DecisionTest(unittest.TestCase):
         report = decide([exact], [exact], self.policy)
         self.assertEqual(report.stock_decisions[0].current_alarms, ())
 
-    def test_eq41_promotion_gate(self) -> None:
+    def test_repository_promotion_gate(self) -> None:
         self.assertTrue(promotion_allowed(0.01, 0.01, -0.01, -0.01,
-                                          {"des_threshold"}, self.contract,
-                                          self.policy, True))
+                                          {"des_threshold"}, self.policy, True))
         self.assertFalse(promotion_allowed(0.01, 0.01, -0.01, -0.01,
-                                           {"label_definition"}, self.contract,
-                                           self.policy, True))
+                                           {"label_definition"}, self.policy, True))
         self.assertFalse(promotion_allowed(0.01, 0.01, -0.01, -0.01,
-                                           {"des_threshold"}, self.contract,
-                                           self.policy, False))
+                                           {"des_threshold"}, self.policy, False))
 
     def test_candidate_plan_is_dry_run_and_within_theta_allow(self) -> None:
         windows = [window("2330", alarms=True, groups=("macro",))]
         report = decide(windows, windows, self.policy, "failed")
-        plan = build_plan(report, self.contract)
+        plan = build_plan(report, self.policy)
         self.assertEqual(plan.decision_level, 2)
         self.assertTrue(plan.dry_run)
         self.assertFalse(plan.executable)
         changed = {parameter for step in plan.steps for parameter in step.changed_parameters}
-        self.assertLessEqual(changed, set(self.contract["theta_allow"]))
+        self.assertLessEqual(
+            changed, set(self.policy["repository_update_extension"]["theta_allow"]))
 
 
 if __name__ == "__main__":

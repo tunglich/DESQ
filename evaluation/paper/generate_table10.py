@@ -1,4 +1,4 @@
-"""Generate revised-paper Table 9 directly from shipped feature CSV headers."""
+"""Generate revised-paper Appendix A Table A1 from shipped feature CSV headers."""
 from __future__ import annotations
 
 import argparse
@@ -85,7 +85,7 @@ def write_csv(path: Path, rows: list[dict[str, object]], fieldnames: list[str] |
 
 def write_markdown(path: Path, rows: list[dict[str, str | int]]) -> None:
     lines = [
-        "# Table 9. Taxonomy of the 78 features",
+        "# Table A1. Taxonomy of the 78 features",
         "",
         "Generated from every shipped `features/<group>_<ticker>.csv` header.",
         "",
@@ -149,7 +149,7 @@ def main() -> int:
     )
     write_markdown(args.output_dir / "table9_feature_taxonomy.md", rows)
     write_latex(args.output_dir / "table9_feature_taxonomy.tex", rows)
-    print(f"Table 9: {sum(int(row['feature_count']) for row in rows)} features; "
+    print(f"Table A1: {sum(int(row['feature_count']) for row in rows)} features; "
           f"checked {sum(int(row['source_file_count']) for row in rows)} files; "
           f"{len(drift_rows)} schema drifts")
     return 0

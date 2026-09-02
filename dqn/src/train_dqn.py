@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import random
 import sys
 import time
 from pathlib import Path
@@ -79,7 +80,16 @@ def default_cfg() -> dict:
         # output
         "saves_path": None,
         "run_name": "tw_dqn",
+        "seed": None,
     }
+
+
+def configure_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 class PrioReplayBuffer:
@@ -162,6 +172,8 @@ def train_one_fold(cfg: dict) -> dict:
     if not cfg.get("train_csv") or not cfg.get("val_csv"):
         raise ValueError("cfg must include train_csv and val_csv")
 
+    if cfg.get("seed") is not None:
+        configure_seed(int(cfg["seed"]))
     device = torch.device("cuda" if cfg.get("cuda", True) and torch.cuda.is_available() else "cpu")
     saves_path = Path(cfg["saves_path"])
     saves_path.mkdir(parents=True, exist_ok=True)
@@ -212,6 +224,7 @@ def train_one_fold(cfg: dict) -> dict:
     beta_frames = cfg["epsilon_steps"]
     eval_states = None
     best_val_reward = None
+    best_val_checkpoint = None
     train_deadline = (time.time() + float(cfg["train_hours"]) * 3600) if cfg.get("train_hours") else None
     fps_measure_start_time = None
     fps_measure_start_frame = None
@@ -287,7 +300,8 @@ def train_one_fold(cfg: dict) -> dict:
                         if best_val_reward is not None:
                             print(f"{frame_idx}: Best val reward {best_val_reward:.3f} -> {val_reward:.3f}")
                         best_val_reward = val_reward
-                        torch.save(net.state_dict(), saves_path / f"best_val-{val_reward:.3f}.data")
+                        best_val_checkpoint = saves_path / f"best_val-{val_reward:.3f}.data"
+                        torch.save(net.state_dict(), best_val_checkpoint)
 
                 if train_deadline and time.time() >= train_deadline:
                     print(f"Reached train_hours={cfg['train_hours']}h at frame {frame_idx:,}")
@@ -300,17 +314,22 @@ def train_one_fold(cfg: dict) -> dict:
             except Exception:  # noqa: BLE001
                 pass
 
-    return {"best_val_reward": best_val_reward, "final_frame": frame_idx,
-            "saves_path": str(saves_path)}
+        return {"best_val_reward": best_val_reward,
+            "best_val_checkpoint": (str(best_val_checkpoint)
+                        if best_val_checkpoint is not None else None),
+            "final_frame": frame_idx, "saves_path": str(saves_path)}
 
 
-def run_walk_forward(symbol: str, cfg: dict, folds: list[int] | None = None) -> None:
+def run_walk_forward(symbol: str, cfg: dict, folds: list[int] | None = None) -> list[dict]:
     data_dir = Path(cfg.pop("data_dir", REPO_ROOT / "data"))
+    candidate_manifest = cfg.pop("candidate_manifest", None)
     csv_path = data_dir / f"{symbol}_all.csv"
     if not csv_path.is_file():
         raise SystemExit(f"missing data: {csv_path}")
 
     saves_root = Path(cfg.pop("saves_root", REPO_ROOT / "saves")) / f"{symbol}_all"
+    if cfg.get("seed") is not None:
+        saves_root /= f"seed_{int(cfg['seed'])}"
     saves_root.mkdir(parents=True, exist_ok=True)
     print(f"walk-forward: symbol={symbol}  saves_root={saves_root}")
 
@@ -319,6 +338,7 @@ def run_walk_forward(symbol: str, cfg: dict, folds: list[int] | None = None) -> 
     fold_ids = folds if folds is not None else list(range(len(all_folds)))
     print(f"pre-test rows={len(df)}  ({df['<DATE>'].min().date()} ~ {df['<DATE>'].max().date()})")
 
+    results = []
     for k in fold_ids:
         train_df, val_df = all_folds[k]
         fold_dir = saves_root / f"fold_{k}"
@@ -332,7 +352,31 @@ def run_walk_forward(symbol: str, cfg: dict, folds: list[int] | None = None) -> 
             "saves_path": fold_dir,
             "run_name": f"{symbol}_all_fold{k}",
         })
-        train_one_fold(fold_cfg)
+        result = train_one_fold(fold_cfg)
+        result["fold"] = k
+        results.append(result)
+
+    if candidate_manifest is not None:
+        if cfg.get("seed") is None:
+            raise ValueError("--candidate-manifest requires --seed")
+        valid = [result for result in results if result["best_val_reward"] is not None]
+        if not valid:
+            raise RuntimeError("no validation checkpoint was produced")
+        best = max(valid, key=lambda item: (float(item["best_val_reward"]), -int(item["fold"])))
+        checkpoint = Path(best["best_val_checkpoint"])
+        if not checkpoint.is_file():
+            raise RuntimeError(f"validation checkpoint missing: {checkpoint}")
+        candidate_manifest = Path(candidate_manifest)
+        candidate_manifest.parent.mkdir(parents=True, exist_ok=True)
+        relative_checkpoint = Path(os.path.relpath(checkpoint, candidate_manifest.parent)).as_posix()
+        pd.DataFrame([{
+            "stock_id": symbol,
+            "seed": int(cfg["seed"]),
+            "validation_return": float(best["best_val_reward"]),
+            "checkpoint_path": relative_checkpoint,
+        }]).to_csv(candidate_manifest, index=False, lineterminator="\n")
+        print(f"candidate manifest: {candidate_manifest}")
+    return results
 
 
 def _build_argparser() -> argparse.ArgumentParser:
@@ -355,6 +399,10 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--checkpoint-every", type=int, default=cfg["checkpoint_every_step"])
     p.add_argument("--data-dir", type=Path, default=REPO_ROOT / "data")
     p.add_argument("--saves-root", type=Path, default=REPO_ROOT / "saves")
+    p.add_argument("--seed", type=int, default=None,
+                   help="Reproducible agent seed; seeded runs use an isolated seed_<N> directory")
+    p.add_argument("--candidate-manifest", type=Path, default=None,
+                   help="Write this seed's best-fold validation checkpoint metadata")
     p.add_argument("--cpu", action="store_true", help="Force CPU (default: use CUDA if available)")
     return p
 
@@ -379,6 +427,8 @@ def main() -> int:
         "cuda": not args.cpu,
         "data_dir": args.data_dir,
         "saves_root": args.saves_root,
+        "seed": args.seed,
+        "candidate_manifest": args.candidate_manifest,
     })
     if args.fold == "all":
         folds = None

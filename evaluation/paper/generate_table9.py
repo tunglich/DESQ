@@ -1,4 +1,4 @@
-"""Public entry point for revised-paper Table 9 feature taxonomy generation."""
+"""Compatibility entry point for Appendix A Table A1 feature taxonomy generation."""
 from generate_table10 import inventory, main, write_csv, write_latex, write_markdown
 
 

@@ -1,4 +1,4 @@
-"""Paper Appendix-F alarm, escalation, and promotion decisions."""
+"""Appendix-F alarms plus repository-defined update planning policy."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -53,10 +53,11 @@ def compute_alarms(window: DiagnosticWindow, policy: dict[str, Any]) -> tuple[st
     alarms = {
         "precision": window.precision_gap > float(thresholds["precision_gap"]),
         "return": window.return_gap > float(thresholds["return_gap"]),
-        "risk": window.sharpe < 0.0 or window.information_ratio < 0.0,
+        "risk": (window.sharpe < float(thresholds["sharpe_lower_limit"]) or
+             window.information_ratio < float(thresholds["information_ratio_lower_limit"])),
         "disagreement": window.disagreement > window.training_disagreement_q90,
         "flooding": window.flooding_upper_fraction > float(thresholds["flooding_upper_fraction"]),
-        "feature_drift": window.max_psi > 0.25,
+        "feature_drift": window.max_psi > float(thresholds["psi"]),
     }
     return tuple(name for name in ALARM_NAMES if alarms[name])
 
@@ -73,8 +74,8 @@ def decide_stock(current: DiagnosticWindow, previous: DiagnosticWindow,
     previous_alarms = compute_alarms(previous, policy)
     triggered = len(current_alarms) >= 2 and len(previous_alarms) >= 2
     groups = current.affected_groups if triggered else ()
-    reason = ("Eq. (22): at least two alarms fired in two consecutive mature windows"
-              if triggered else "Eq. (22) did not fire")
+    reason = ("Appendix F trigger: at least two alarms fired in adjacent mature windows"
+              if triggered else "Appendix F mature-window trigger did not fire")
     return StockDecision(current.stock_id, True, current_alarms, previous_alarms,
                          triggered, groups, reason)
 
@@ -106,10 +107,10 @@ def decide(current: Iterable[DiagnosticWindow], previous: Iterable[DiagnosticWin
 
 def promotion_allowed(delta_precision: float, delta_sharpe: float,
                       delta_turnover: float, delta_drawdown: float,
-                      changed_parameters: set[str], contract: dict[str, Any],
-                      policy: dict[str, Any], immutable_unchanged: bool) -> bool:
+                      changed_parameters: set[str], policy: dict[str, Any],
+                      immutable_unchanged: bool) -> bool:
     limits = policy["promotion"]
-    allowed = set(contract["theta_allow"])
+    allowed = set(policy["repository_update_extension"]["theta_allow"])
     return (
         delta_precision > float(limits["minimum_precision_improvement"])
         and delta_sharpe > -float(limits["maximum_sharpe_decrease"])

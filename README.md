@@ -3,7 +3,7 @@
 [![CI](https://github.com/tunglich/DESQ/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tunglich/DESQ/actions/workflows/ci.yml)
 [![DOI](https://zenodo.org/badge/DOI/pending.svg)](https://doi.org/pending) <!-- replace with real DOI after Zenodo mints it -->
 
-> **Revised-paper release**: this repository accompanies the IEEE Access submission *"Dynamic-Flooding Transformer Ensembles for Reinforcement-Learning-Based Equity Market Timing"*. The paper-aligned code and provenance bundle are released as [`v1.1-desq`](https://github.com/tunglich/DESQ/releases/tag/v1.1-desq). The earlier `v1.0-desq` tag remains an immutable pre-revision reviewer snapshot and is not authoritative for revised-paper values.
+> **Revised-paper release candidate**: this branch targets `v1.2-desq` and the complete 28-page paper authority recorded in [docs/paper_revision_v1.2.md](docs/paper_revision_v1.2.md). Published `v1.0-desq` and `v1.1-desq` tags remain immutable historical snapshots.
 
 A market-timing framework for the TWSE Top-50 constituents that stacks:
 
@@ -33,8 +33,8 @@ are not shipped. See [evaluation/paper/README.md](evaluation/paper/README.md).
 
 | Revised-paper result | DESQ DDQN return | Benchmark return | Canonical source |
 | --- | ---: | ---: | --- |
-| TSMC (2330.TT) | **+202.50%** | +201.82% | [evaluation/paper/tables/table10_top50_flooding.csv](evaluation/paper/tables/table10_top50_flooding.csv) |
-| MediaTek (2454.TT) | **+101.20%** | +62.69% | [evaluation/paper/tables/table10_top50_flooding.csv](evaluation/paper/tables/table10_top50_flooding.csv) |
+| TSMC (2330.TT) | **+202.50%** | +201.82% | [Appendix C Table C1](evaluation/paper/tables/table10_top50_flooding.csv) |
+| MediaTek (2454.TT) | **+101.20%** | +62.69% | [Appendix C Table C1](evaluation/paper/tables/table10_top50_flooding.csv) |
 | TWSE Top-50 portfolio | **+129.0%** | +88.07% | [evaluation/paper/tables/table8_regime.csv](evaluation/paper/tables/table8_regime.csv) |
 
 ### Legacy diagnostic
@@ -410,9 +410,9 @@ The `dqn/` subfolder contains the revised paper's execution layer, adapted from 
 ## How to cite
 
 Please cite the specific release DOI rather than the head of the main branch,
-so reviewers can reproduce the exact bytes you ran against. The `v1.1-desq`
-tag is the revised-paper release; `v1.0-desq` remains the pre-revision
-reviewer snapshot. Zenodo's concept DOI links both immutable releases.
+so reviewers can reproduce the exact bytes you ran against. `v1.2-desq` is the
+current release candidate; `v1.0-desq` and `v1.1-desq` remain immutable
+historical snapshots. Zenodo's concept DOI links the archived releases.
 
 **BibTeX** (replace `10.5281/zenodo.XXXXXXX` with the DOI printed on the
 Zenodo record once the release is minted):
@@ -422,10 +422,10 @@ Zenodo record once the release is minted):
   author    = {Chen, Tung-Li},
   title     = {DESQ: Dynamic-Flooding Transformer Ensembles for
                Reinforcement-Learning-Based Equity Market Timing
-               (v1.1-desq)},
+               (v1.2-desq)},
   year      = {2026},
   publisher = {Zenodo},
-  version   = {v1.1-desq},
+  version   = {v1.2-desq},
   doi       = {10.5281/zenodo.XXXXXXX},
   url       = {https://doi.org/10.5281/zenodo.XXXXXXX},
   note      = {Revised-paper implementation and evidence bundle for the

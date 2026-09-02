@@ -1,12 +1,36 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "classification": "operational_policy",
   "cadence": "monthly",
   "minimum_mature_anchors": 60,
   "alarm_thresholds": {
     "precision_gap": 0.05,
     "return_gap": 0.0,
+    "sharpe_lower_limit": 0.0,
+    "information_ratio_lower_limit": 0.0,
+    "psi": 0.25,
     "flooding_upper_fraction": 0.25
+  },
+  "repository_update_extension": {
+    "level_1_threshold_grid": {"start": 0.45, "stop": 0.60, "step": 0.01},
+    "theta_allow": [
+      "des_threshold",
+      "des_competence_window",
+      "temperature_scaling",
+      "fine_tuning_learning_rate",
+      "fine_tuning_epochs",
+      "dynamic_flooding_bounds",
+      "freeze_policy",
+      "automl_ranges"
+    ],
+    "theta_forbid": [
+      "label_definition",
+      "split",
+      "transaction_costs",
+      "holdout_evaluator",
+      "benchmark",
+      "backtest_rule"
+    ]
   },
   "broad_drift": {
     "minimum_stocks": 10,

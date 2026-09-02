@@ -1,4 +1,4 @@
-# Table 9. Taxonomy of the 78 features
+# Table A1. Taxonomy of the 78 features
 
 Generated from every shipped `features/<group>_<ticker>.csv` header.
 

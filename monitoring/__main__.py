@@ -31,8 +31,7 @@ def run_smoke() -> int:
     broad_windows = [_synthetic(str(2300 + index), True,
                                 ("fundamental", "trend", "macro")) for index in range(10)]
     level_three = decide(broad_windows, broad_windows, policy, "failed")
-    contract, _ = load_contract()
-    plans = [build_plan(report, contract) for report in
+    plans = [build_plan(report, policy) for report in
              (stable, level_one, level_two, level_three)]
     observed = [stable.level, level_one.level, level_two.level, level_three.level]
     if observed != [0, 1, 2, 3]:
