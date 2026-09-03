@@ -53,7 +53,7 @@ def _balanced_accuracy(labels: list[int], predictions: list[int]) -> float | Non
 
 
 def adapt_stage2_prediction(path: Path, stock_id: str, aspect: str, as_of_date: date,
-                            label_horizon: int = 20, mature_window: int = 60) -> Stage2Result:
+                            label_horizon: int = 20, mature_window: int = 40) -> Stage2Result:
     normalized_aspect = ASPECT_NAMES.get(aspect)
     if normalized_aspect is None:
         raise ValueError(f"unknown Stage 2 aspect: {aspect}")

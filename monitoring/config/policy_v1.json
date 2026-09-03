@@ -2,13 +2,14 @@
   "schema_version": "1.1",
   "classification": "operational_policy",
   "cadence": "monthly",
-  "minimum_mature_anchors": 60,
   "alarm_thresholds": {
     "precision_gap": 0.05,
-    "return_gap": 0.0,
     "sharpe_lower_limit": 0.0,
     "information_ratio_lower_limit": 0.0,
-    "psi": 0.25,
+    "psi": 0.25
+  },
+  "diagnostic_reference_thresholds": {
+    "return_gap": 0.0,
     "flooding_upper_fraction": 0.25
   },
   "repository_update_extension": {
@@ -37,7 +38,7 @@
     "minimum_feature_groups": 3
   },
   "promotion": {
-    "minimum_precision_improvement": 0.0,
+    "minimum_cost_aware_objective_improvement": 0.0,
     "maximum_sharpe_decrease": 0.0,
     "maximum_turnover_increase": 0.0,
     "maximum_drawdown_increase": 0.0

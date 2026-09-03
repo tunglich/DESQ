@@ -10,6 +10,7 @@ from .adapters import ASPECT_NAMES, adapt_stage2_prediction
 from .config import load_contract, load_policy
 from .decision import DiagnosticWindow, decide
 from .planner import build_plan
+from .protocol import evaluate_batches, load_diagnostic_batch
 from .schemas import MonitoringSnapshot, canonical_json
 
 
@@ -17,7 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _synthetic(stock: str, drift: bool, groups: tuple[str, ...] = ()) -> DiagnosticWindow:
-    return DiagnosticWindow(stock, 60, 0.08 if drift else 0.01,
+    return DiagnosticWindow(stock, 40, 0.08 if drift else 0.01,
                             0.02 if drift else -0.01, 0.8, 0.7,
                             0.1, 0.2, 0.1, 0.30 if drift else 0.1, groups)
 
@@ -54,7 +55,7 @@ def collect_stage2(args: argparse.Namespace) -> int:
             raise FileNotFoundError(path)
         results.append(adapt_stage2_prediction(path, args.stock_id, raw_aspect, args.as_of,
                                                contract["label_horizon_trading_days"],
-                                               contract["mature_window_trading_days"]))
+                                               contract["mature_anchor_count"]))
     cutoffs = {result.mature_label_cutoff for result in results}
     if len(cutoffs) != 1:
         raise RuntimeError(f"Stage 2 mature cutoffs disagree: {sorted(cutoffs)}")
@@ -75,10 +76,32 @@ def collect_stage2(args: argparse.Namespace) -> int:
     return 0
 
 
+def evaluate_protocol(args: argparse.Namespace) -> int:
+    contract, contract_hash = load_contract(args.contract)
+    policy, policy_hash = load_policy(args.policy)
+    current = load_diagnostic_batch(args.current)
+    previous = load_diagnostic_batch(args.previous)
+    evaluation = evaluate_batches(current, previous, contract, contract_hash, policy_hash, policy,
+                                  args.recalibration_status)
+    destination = evaluation.write(args.output_root)
+    print(canonical_json({
+        "evaluation_id": evaluation.evaluation_id,
+        "decision_level": evaluation.decision.level,
+        "action": evaluation.decision.action,
+        "dry_run": evaluation.candidate_plan.dry_run,
+        "executable": evaluation.candidate_plan.executable,
+        "path": str(destination),
+    }))
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("smoke", help="Run deterministic synthetic Level 0-3 checks")
+    show_config = subparsers.add_parser("show-config", help="Print active contract and policy hashes")
+    show_config.add_argument("--contract", type=Path)
+    show_config.add_argument("--policy", type=Path)
     collect = subparsers.add_parser("collect-stage2", help="Create a read-only Stage 2 snapshot")
     collect.add_argument("--stock-id", default="2330")
     collect.add_argument("--as-of", type=date.fromisoformat, default=date.today())
@@ -88,10 +111,29 @@ def main() -> int:
     collect.add_argument("--evaluator-hash", default="stage2-classification-v1")
     collect.add_argument("--contract", type=Path)
     collect.add_argument("--policy", type=Path)
+    evaluate = subparsers.add_parser(
+        "evaluate", help="Evaluate two mature diagnostic windows and write a dry-run plan"
+    )
+    evaluate.add_argument("--current", type=Path, required=True)
+    evaluate.add_argument("--previous", type=Path, required=True)
+    evaluate.add_argument("--recalibration-status",
+                          choices=("not_evaluated", "promoted", "failed"),
+                          default="not_evaluated")
+    evaluate.add_argument("--output-root", type=Path,
+                          default=REPO_ROOT / "artifacts" / "monitoring" / "evaluations")
+    evaluate.add_argument("--contract", type=Path)
+    evaluate.add_argument("--policy", type=Path)
     args = parser.parse_args()
     if args.command == "smoke":
         return run_smoke()
-    return collect_stage2(args)
+    if args.command == "show-config":
+        _, contract_hash = load_contract(args.contract)
+        _, policy_hash = load_policy(args.policy)
+        print(canonical_json({"paper_contract_hash": contract_hash, "policy_hash": policy_hash}))
+        return 0
+    if args.command == "collect-stage2":
+        return collect_stage2(args)
+    return evaluate_protocol(args)
 
 
 if __name__ == "__main__":

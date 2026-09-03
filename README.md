@@ -28,6 +28,20 @@ Double DQN execution layer is documented under Stage 4 below.
 
 Regenerate the figure with `python docs/_render_training_pipeline.py`.
 
+## Self-improving monitoring protocol
+
+The `monitoring` package implements Appendix F Eqs. (10)-(20): mature-label
+filtering, predictive/trading diagnostics, the paper's five-alarm trigger over
+two adjacent mature windows, immutable evaluations, and non-executing update
+plans. The paper's hypothetical localized Level-2 case is represented without
+claiming that monitoring was active in the reported experiments. General Level
+0-3 routing and numerical thresholds remain labeled repository operational
+policy.
+
+Start with `python -m monitoring smoke` and `python -m monitoring show-config`.
+See [monitoring/README.md](monitoring/README.md) for metric APIs, diagnostic JSON
+schemas, evaluation commands, and the deployment safety boundary.
+
 ## Experimental results
 
 The revised paper reports the following sealed-holdout results. These are the

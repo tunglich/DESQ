@@ -7,7 +7,7 @@ from monitoring.decision import DiagnosticWindow, decide, promotion_allowed
 from monitoring.planner import build_plan
 
 
-def window(stock: str, *, alarms: bool, groups: tuple[str, ...] = (), samples: int = 60) -> DiagnosticWindow:
+def window(stock: str, *, alarms: bool, groups: tuple[str, ...] = (), samples: int = 40) -> DiagnosticWindow:
     return DiagnosticWindow(
         stock_id=stock,
         sample_count=samples,
@@ -46,19 +46,38 @@ class DecisionTest(unittest.TestCase):
         self.assertEqual(decide(broad, broad, self.policy, "failed").level, 3)
 
     def test_insufficient_data_never_triggers(self) -> None:
-        short = [window("2330", alarms=True, samples=59)]
+        short = [window("2330", alarms=True, samples=39)]
         report = decide(short, short, self.policy)
         self.assertEqual(report.level, 0)
         self.assertFalse(report.stock_decisions[0].eligible)
+        long = [window("2330", alarms=True, samples=41)]
+        self.assertFalse(decide(long, long, self.policy).stock_decisions[0].eligible)
 
     def test_alarm_thresholds_are_strict(self) -> None:
-        exact = DiagnosticWindow("2330", 60, 0.05, 0.0, 0.0, 0.0,
+        exact = DiagnosticWindow("2330", 40, 0.05, 0.0, 0.0, 0.0,
                                  0.2, 0.2, 0.25, 0.25, ("macro",))
         report = decide([exact], [exact], self.policy)
         self.assertEqual(report.stock_decisions[0].current_alarms, ())
 
+    def test_paper_trigger_uses_five_named_alarm_types(self) -> None:
+        diagnostic_only = DiagnosticWindow("2330", 40, 0.01, 0.50, 1.0, 1.0,
+                                           0.1, 0.2, 1.0, 0.1, ("macro",))
+        report = decide([diagnostic_only], [diagnostic_only], self.policy)
+        self.assertEqual(report.stock_decisions[0].current_alarms, ())
+
+        risk = DiagnosticWindow("2330", 40, 0.01, 0.0, -0.1, -0.1,
+                                0.1, 0.2, 0.1, 0.1, ("macro",))
+        report = decide([risk], [risk], self.policy)
+        self.assertEqual(
+            report.stock_decisions[0].current_alarms,
+            ("sharpe", "information_ratio"),
+        )
+        self.assertTrue(report.stock_decisions[0].update_triggered)
+
     def test_repository_promotion_gate(self) -> None:
         self.assertTrue(promotion_allowed(0.01, 0.01, -0.01, -0.01,
+                                          {"des_threshold"}, self.policy, True))
+        self.assertTrue(promotion_allowed(0.01, 0.0, 0.0, 0.0,
                                           {"des_threshold"}, self.policy, True))
         self.assertFalse(promotion_allowed(0.01, 0.01, -0.01, -0.01,
                                            {"label_definition"}, self.policy, True))
@@ -75,6 +94,19 @@ class DecisionTest(unittest.TestCase):
         changed = {parameter for step in plan.steps for parameter in step.changed_parameters}
         self.assertLessEqual(
             changed, set(self.policy["repository_update_extension"]["theta_allow"]))
+
+    def test_portfolio_alarm_can_batch_shared_group(self) -> None:
+        stocks = [
+            DiagnosticWindow(stock, 40, 0.06, 0.0, 1.0, 1.0, 0.1, 0.2,
+                             0.1, 0.1, ("macro",))
+            for stock in ("2330", "2454")
+        ]
+        portfolio = DiagnosticWindow("TW50_PORTFOLIO", 40, 0.06, 0.0, 1.0, 1.0,
+                                     0.1, 0.2, 0.1, 0.3, ("macro",))
+        report = decide(stocks, stocks, self.policy,
+                        portfolio_current=portfolio, portfolio_previous=portfolio)
+        self.assertEqual(report.level, 1)
+        self.assertEqual(report.affected_stocks, ("2330", "2454"))
 
 
 if __name__ == "__main__":

@@ -11,7 +11,8 @@
   },
   "market": "TW",
   "label_horizon_trading_days": 20,
-  "mature_window_trading_days": 60,
+  "monitoring_lookback_trading_days": 60,
+  "mature_anchor_count": 40,
   "purge_gap_trading_days": 30,
   "effective_anchor_gap": 50,
   "train_validation_ratio": "4:1",
@@ -21,7 +22,8 @@
   "paper_alarm_rules": {
     "minimum_alarm_count": 2,
     "adjacent_mature_windows": 2,
-    "risk_alarm": "sharpe < delta_sr or information_ratio < delta_ir",
+    "alarm_types": ["precision", "sharpe", "information_ratio", "feature_drift", "disagreement"],
+    "risk_alarms": ["sharpe < delta_sr", "information_ratio < delta_ir"],
     "disagreement_alarm": "disagreement > training_disagreement_q90"
   },
   "reported_experiment_activation": false

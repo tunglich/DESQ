@@ -24,8 +24,8 @@ class AdapterTest(unittest.TestCase):
                                      1.0 - probability, probability, "oof"])
             result = adapt_stage2_prediction(path, "2330", "macro", date(2026, 12, 31))
             self.assertEqual(result.status, "valid")
-            self.assertTrue(all(metric.sample_count == 60 for metric in result.metrics))
-            self.assertEqual(result.observation_start, "2026-01-01")
+            self.assertTrue(all(metric.sample_count == 40 for metric in result.metrics))
+            self.assertEqual(result.observation_start, "2026-01-21")
             self.assertEqual(result.observation_end, "2026-03-01")
             self.assertEqual(result.mature_label_cutoff, "2026-03-01")
 
