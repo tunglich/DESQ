@@ -48,8 +48,8 @@ Windows: replace `make ...` with `.\run.ps1 smoke-oof`.
 
 ## Citing this release
 
-- Machine-readable: [`CITATION.cff`](CITATION.cff) (parsed by the
-  GitHub *Cite this repository* button) and [`.zenodo.json`](.zenodo.json).
+- Machine-readable: [`CITATION.cff`](../CITATION.cff) (parsed by the
+  GitHub *Cite this repository* button) and [`.zenodo.json`](../.zenodo.json).
 - BibTeX template: see the *How to cite* section of the README.
 - The DOI will be minted by Zenodo when this GitHub Release is published;
   after that, replace the placeholder in `CITATION.cff`, `.zenodo.json`,

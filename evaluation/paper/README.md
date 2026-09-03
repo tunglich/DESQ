@@ -1,4 +1,4 @@
-# Revised-paper Tables 3-10
+# Revised-paper Tables 3-8, A1, and C1
 
 This bundle targets the authoritative 28-page PDF `Paper2_Highlighted_PDF_consistency_fixed.pdf` with SHA-256:
 

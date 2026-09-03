@@ -1,6 +1,8 @@
 {
   "title": "DESQ: Dynamic-Flooding Transformer Ensembles for Reinforcement-Learning-Based Equity Market Timing (v1.2-desq)",
   "description": "Reference implementation for the revised IEEE Access paper. This v1.2-desq release aligns to the complete 28-page authority, adds deterministic per-stock nine-seed median-agent selection, updates Appendix A1/C1 artifacts, and separates Appendix F alarms from repository-defined update policy. Retained DES/CUSUM outputs remain explicitly labeled legacy diagnostics rather than DDQN reproductions.",
+  "version": "v1.2-desq",
+  "publication_date": "2026-09-03",
   "upload_type": "software",
   "access_right": "open",
   "license": "MIT",

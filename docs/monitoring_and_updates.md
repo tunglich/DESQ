@@ -7,7 +7,7 @@ content-addressed snapshots, applies the paper's two-alarm/two-window trigger,
 and emits non-executing candidate plans.
 
 This mechanism was not activated in the paper's reported experiments. It does
-not change the evidence status or values of Tables 3-10.
+not change the evidence status or values of Tables 3-8, A1, or C1.
 
 ## Current commands
 
