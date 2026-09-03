@@ -29,6 +29,38 @@ Authority: the complete 28-page `Paper2_Highlighted_PDF_consistency_fixed.pdf`, 
 | Top-50 flooding ablation | Appendix C, Table C1 | Arithmetic reproduced; raw per-stock DDQN paths are not shipped; `2324.TT` conflicts with repo universe `3231` |
 | Post-deployment monitoring | Appendix F, Eqs. (10)-(20) | Paper alarms implemented; Level 0-3 dry-run planning and promotion guards are explicitly repository-defined extensions |
 
+## Current-paper replacement map
+
+This map identifies the active replacement for every removed pre-revision
+result surface. A table transcription replaces an old curve only as a record of
+the paper's reported values; it does not create a reproducible DDQN return path.
+
+| Removed or superseded surface | Current-paper replacement | Evidence boundary |
+| --- | --- | --- |
+| Taiwan rule-trader NAV CSVs and overview chart | [Table C1](../evaluation/paper/tables/table10_top50_flooding.md) for TSMC, MediaTek, and per-stock ablations; [Table 8](../evaluation/paper/tables/table8_regime.md) for Top-50 portfolio and regimes | Reported DDQN values plus arithmetic audits; no DDQN NAV or replacement chart |
+| Taiwan chart renderer and `make figures` result-chart target | [Appendix B Figure B1](training_pipeline.png), rebuilt by `python docs/_render_training_pipeline.py` or `make figures` | Architecture figure, not a performance curve |
+| U.S. DES+CUSUM four-method report and combined charts | [Table 6](../evaluation/paper/tables/table6_cross_market.md) and the [U.S. entry page](../us/README.md) | DESQ rows are `reported_only`; peer and benchmark rows retain shipped-NAV audits |
+| Duplicate U.S. seven-stage pipeline image | Root [Appendix B Figure B1](training_pipeline.png) | One canonical paper-aligned architecture figure |
+| Table 8 comparison against the old Taiwan NAV | [Table 8 paper-contract audit](../evaluation/paper/validation/table8_paper_contract_check.csv) | Checks regime set, 540-day partition, and excess-return arithmetic only |
+| Signal-pattern/CUSUM execution presented as the current strategy | [Signal-Conditioned Double DQN](../dqn/README.md) with prioritised replay and [nine-agent median selection](../dqn/src/select_median_agents.py) | Core and selector are implemented; canonical checkpoints, action paths, and nine-seed manifests are not shipped |
+| Informal post-deployment update narrative | [Appendix F monitoring protocol](../monitoring/README.md) and [equation map](../monitoring/PAPER_EQUATIONS.md) | Paper alarms are implemented; Level 0-3 routing and promotion policy are repository extensions |
+| Hand-maintained result summaries | [Generated paper bundle](../evaluation/paper/README.md) and [SHA-256 manifest](../evaluation/paper/tables_manifest.json) | Rebuild with `python evaluation/paper/generate_tables.py` |
+| Old-result wording in release/citation metadata | [v1.2 release notes](RELEASE_NOTES_v1.2-desq.md), [`CITATION.cff`](../CITATION.cff), and [Zenodo metadata](../.zenodo.json) | Active metadata describes only the revised-paper bundle |
+
+### Paper-to-code map
+
+| Revised-paper component | Owning repository surface | Status |
+| --- | --- | --- |
+| Five feature groups / 78 inputs | [`features/`](../features/) and [Table A1](../evaluation/paper/tables/table9_feature_taxonomy.md) | Reproduced with recorded schema drift |
+| Five rolling windows and purge | [`dqn/src/walk_forward.py`](../dqn/src/walk_forward.py) | Implemented; full causal DES inputs are not shipped |
+| Attention plus static Flooding | [`tw50_flood.py`](../tw50_flood.py) | Implemented; exact two-stage paper search preset remains partial |
+| Dynamic Flooding | [`tw50_dflood.py`](../tw50_dflood.py) | Implemented; compact workflow repeat/top-3 parity remains partial |
+| Probability-valued KNORA-E, `K=30` | [`tw50_des.py`](../tw50_des.py) | Implemented |
+| Signal-Conditioned Double DQN and PER | [`dqn/src/train_dqn.py`](../dqn/src/train_dqn.py) and [`dqn/src/backtest.py`](../dqn/src/backtest.py) | Implemented and regression-tested |
+| Nine-seed median-agent selection | [`dqn/src/select_median_agents.py`](../dqn/src/select_median_agents.py) | Implemented and regression-tested; canonical run bundle absent |
+| LIME explainability | No current implementation | Missing; SHAP is not treated as a substitute |
+| Appendix F self-improving monitoring | [`monitoring/`](../monitoring/) | Implemented with immutable dry-run evaluation and guarded planning |
+
 ## Evidence policy
 
 - `implemented`: the active code path matches the stated contract and has a focused check where practical.
