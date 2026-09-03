@@ -42,7 +42,7 @@ param(
                  'seed-sweep',
                  'rerun-baselines', 'verify-baselines', 'snapshot-baselines',
                  'verify-prices', 'hash-shipped', 'repro', 'manifest-check',
-                 'figures', 'figures-us', 'tables', 'tables-check',
+                 'figures', 'tables', 'tables-check',
                  'clean-smoke', 'clean-artifacts', 'clean-all')]
     [string]$Target = 'help',
 
@@ -102,8 +102,7 @@ TW-50 DESQ run.ps1 -- Windows PowerShell task runner
     monitor-stage2    immutable Stage 2 snapshot for -Stock
 
   Paper artifacts (no training required):
-    figures           regenerate paper Fig 17
-    figures-us        regenerate paper Fig 19
+        figures           regenerate revised-paper Figure B1
     tables            regenerate and audit revised-paper Tables 3-10
     tables-check      run revised-paper table regression tests
 
@@ -194,8 +193,7 @@ switch ($Target) {
         Invoke-Cmd "$py tw50_des.py     --top50 --no-show --strict-oof"
     }
 
-    'figures'    { Invoke-Cmd "$py evaluation/render_figure_backtest.py" }
-    'figures-us' { Invoke-Cmd "$py us/baselines/combined/combined_comparison.py" }
+    'figures'    { Invoke-Cmd "$py docs/_render_training_pipeline.py" }
     'tables'      { Invoke-Cmd "$py evaluation/paper/generate_tables.py" }
     'tables-check' { Invoke-Cmd "$py -m unittest discover -s evaluation/paper/tests -v" }
 

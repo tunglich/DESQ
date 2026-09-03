@@ -1,5 +1,0 @@
-regime,legacy_source,paper_days,legacy_days,paper_desq_pct,legacy_rule_trader_pct,paper_benchmark_pct,legacy_benchmark_pct,evidence_status
-Full window,backtest_portfolio_tw50.csv,540,540,129.0,131.37371,88.07,88.06976,legacy_diagnostic_mismatch
-Up-trend (pooled),backtest_portfolio_tw50.csv,495,495,139.8,142.160705,213.4,213.38911,legacy_diagnostic_mismatch
-Corr. 1,backtest_portfolio_tw50.csv,15,15,-1.3,-1.335056,-18.3,-18.309996,legacy_diagnostic_mismatch
-Corr. 2,backtest_portfolio_tw50.csv,30,30,-3.0,-3.161631,-26.5,-26.537424,legacy_diagnostic_mismatch

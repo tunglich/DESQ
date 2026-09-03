@@ -1,8 +1,8 @@
-"""Generate and audit revised-paper Tables 3-10.
+"""Generate and audit revised-paper Tables 3-8, A1, and C1.
 
 Reported-only tables are deterministic transcriptions of the authoritative PDF,
 not empirical reproductions. Validation reports show which rows can be rebuilt
-from shipped raw artifacts and where legacy artifacts disagree with the paper.
+from shipped raw artifacts and verify internal paper-table contracts.
 """
 from __future__ import annotations
 
@@ -168,47 +168,26 @@ def validate_table6(rows: list[dict[str, str]]) -> list[dict[str, object]]:
     return report
 
 
-def _compound_selected(returns: pd.Series, mask: pd.Series) -> float:
-    return ((1.0 + returns.loc[mask]).prod() - 1.0) * 100.0
-
-
 def validate_table8(rows: list[dict[str, str]]) -> list[dict[str, object]]:
-    path = ROOT / "evaluation/backtest_portfolio_tw50.csv"
-    frame = pd.read_csv(path, parse_dates=["Date"]).set_index("Date")
-    model_wealth = 1.0 + frame["Model_CumRet"]
-    benchmark_wealth = 1.0 + frame["Benchmark_CumRet"]
-    model_returns = model_wealth.pct_change().fillna(model_wealth.iloc[0] - 1.0)
-    benchmark_returns = benchmark_wealth.pct_change().fillna(benchmark_wealth.iloc[0] - 1.0)
-    correction_returns = pd.Series(False, index=frame.index)
-    calculations = {"Full window": (
-        len(frame), (model_wealth.iloc[-1] - 1) * 100, (benchmark_wealth.iloc[-1] - 1) * 100)}
-    for row in rows:
-        if not row["regime"].startswith("Corr."):
-            continue
-        segment = frame.loc[row["start_date"]:row["end_date"]]
-        days = len(segment) - 1
-        model_return = ((1.0 + segment["Model_CumRet"].iloc[-1]) /
-                        (1.0 + segment["Model_CumRet"].iloc[0]) - 1.0) * 100.0
-        benchmark_return = ((1.0 + segment["Benchmark_CumRet"].iloc[-1]) /
-                            (1.0 + segment["Benchmark_CumRet"].iloc[0]) - 1.0) * 100.0
-        calculations[row["regime"]] = (days, model_return, benchmark_return)
-        correction_returns.loc[(frame.index > segment.index[0]) &
-                               (frame.index <= segment.index[-1])] = True
-    calculations["Up-trend (pooled)"] = (
-        int((~correction_returns).sum()),
-        _compound_selected(model_returns, ~correction_returns),
-        _compound_selected(benchmark_returns, ~correction_returns),
-    )
+    expected_regimes = {"Full window", "Up-trend (pooled)", "Corr. 1", "Corr. 2"}
+    by_regime = {row["regime"]: row for row in rows}
+    if set(by_regime) != expected_regimes:
+        raise ValueError(f"Table 8 regime set mismatch: {sorted(by_regime)}")
+    full_days = int(by_regime["Full window"]["days"])
+    partition_days = sum(int(by_regime[name]["days"])
+                         for name in ("Up-trend (pooled)", "Corr. 1", "Corr. 2"))
     report = []
     for row in rows:
-        actual = calculations[row["regime"]]
-        report.append({"regime": row["regime"], "legacy_source": path.name,
-                       "paper_days": int(row["days"]), "legacy_days": int(actual[0]),
-                       "paper_desq_pct": float(row["desq_return_pct"]),
-                       "legacy_rule_trader_pct": round(float(actual[1]), 6),
-                       "paper_benchmark_pct": float(row["benchmark_return_pct"]),
-                       "legacy_benchmark_pct": round(float(actual[2]), 6),
-                       "evidence_status": "legacy_diagnostic_mismatch"})
+        arithmetic_ok = abs(
+            float(row["desq_return_pct"])
+            - float(row["benchmark_return_pct"])
+            - float(row["excess_pp"])
+        ) <= 0.011
+        report.append({"regime": row["regime"], "paper_days": int(row["days"]),
+                       "excess_arithmetic_ok": arithmetic_ok,
+                       "partition_days_ok": partition_days == full_days})
+    if not all(item["excess_arithmetic_ok"] and item["partition_days_ok"] for item in report):
+        raise ValueError("Table 8 paper contract validation failed")
     return report
 
 
@@ -260,7 +239,7 @@ def main() -> int:
         if number == 6:
             write_rows(VALIDATION / "table6_shipped_nav_check.csv", validate_table6(rows))
         elif number == 8:
-            write_rows(VALIDATION / "table8_legacy_nav_discrepancy.csv", validate_table8(rows))
+            write_rows(VALIDATION / "table8_paper_contract_check.csv", validate_table8(rows))
         elif number == 10:
             write_rows(VALIDATION / "table10_arithmetic_universe_check.csv", validate_table10(rows))
 

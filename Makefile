@@ -11,8 +11,7 @@
 #   make full-2330       # production settings for TSMC (~20 min on GPU)
 #   make full-flagships  # TSMC + MediaTek
 #   make full-top50      # complete TW-50 batch
-#   make figures         # regenerate paper Fig 17 from shipped CSVs
-#   make figures-us      # regenerate paper Fig 19 (US extension)
+#   make figures         # regenerate revised-paper Figure B1
 #   make tables          # regenerate summary tables
 #   make preflight       # environment sanity checks
 #   make lint            # ast.parse on all pipeline scripts
@@ -46,7 +45,7 @@ SWEEP_STAGES  ?= 3
 
 .PHONY: help smoke smoke-oof full-2330 full-flagships full-top50 \
 		stage1 stage2 stage2-oof stage3 stage3-strict stage4-data stage4-train stage4-backtest \
-	prices figures figures-us tables preflight lint monitor-smoke monitor-stage2 \
+	prices figures tables preflight lint monitor-smoke monitor-stage2 \
         seed-sweep \
         rerun-baselines verify-baselines snapshot-baselines \
         verify-prices hash-shipped manifest-check repro \
@@ -66,7 +65,7 @@ help:
 	@echo "    make monitor-smoke # synthetic Appendix-F Level 0-3 smoke"
 	@echo "    make monitor-stage2 # immutable Stage 2 snapshot for STOCK"
 	@echo "    make repro        # reviewer path: hashes + yfinance check + smoke"
-	@echo "    make figures      # regenerate paper Fig 17 from shipped CSVs"
+	@echo "    make figures      # regenerate revised-paper Figure B1"
 	@echo "    make preflight    # environment sanity checks"
 	@echo ""
 	@echo "  Override with STOCK=, TRIALS=, EPOCHS=, BATCH= on the command line."
@@ -129,7 +128,7 @@ seed-sweep:
 	$(PY) scripts/run_seed_sweep.py --stock-ids $(STOCK) --seeds $(SWEEP_SEEDS) --stages $(SWEEP_STAGES)
 
 # ---------------------------------------------------------------------------
-# Baseline reproducibility (US market: DSR-Yang, MACE + combined figure)
+# Baseline reproducibility (US peer methods in current-paper Table 6)
 # ---------------------------------------------------------------------------
 # Snapshot shipped CSVs, rerun baselines, then diff shipped vs rerun.
 rerun-baselines:
@@ -197,13 +196,10 @@ full-top50:
 	$(PY) tw50_des.py     --top50 --no-show --strict-oof
 
 # ---------------------------------------------------------------------------
-# Paper figures / tables regenerated from shipped CSVs (no training needed).
+# Paper figure / tables regenerated without model training.
 # ---------------------------------------------------------------------------
 figures:
-	$(PY) evaluation/render_figure_backtest.py
-
-figures-us:
-	$(PY) us/baselines/combined/combined_comparison.py
+	$(PY) docs/_render_training_pipeline.py
 
 tables:
 	$(PY) evaluation/paper/generate_tables.py

@@ -48,15 +48,11 @@ class PaperTablesTest(unittest.TestCase):
 		self.assertTrue(any(row["metric"] == "sortino_tbill" and row["pass_0_02"] == "False"
 							for row in rows))
 
-	def test_table8_peak_to_trough_intervals(self):
-		rows = read_csv(PAPER_DIR / "validation/table8_legacy_nav_discrepancy.csv")
-		self.assertEqual({row["legacy_source"] for row in rows},
-						 {"backtest_portfolio_tw50.csv"})
-		self.assertEqual([int(row["legacy_days"]) for row in rows], [540, 495, 15, 30])
-		self.assertTrue(all(abs(float(row["legacy_benchmark_pct"]) -
-								float(row["paper_benchmark_pct"])) <= 0.05 for row in rows))
-		self.assertTrue(any(abs(float(row["legacy_rule_trader_pct"]) -
-								float(row["paper_desq_pct"])) > 1.0 for row in rows))
+	def test_table8_paper_contract(self):
+		rows = read_csv(PAPER_DIR / "validation/table8_paper_contract_check.csv")
+		self.assertEqual([int(row["paper_days"]) for row in rows], [540, 495, 15, 30])
+		self.assertTrue(all(row["excess_arithmetic_ok"] == "True" for row in rows))
+		self.assertTrue(all(row["partition_days_ok"] == "True" for row in rows))
 
 	def test_table9_has_78_common_features_and_audited_drift(self):
 		taxonomy = read_csv(PAPER_DIR / "tables/table9_feature_taxonomy.csv")

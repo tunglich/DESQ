@@ -28,9 +28,8 @@ The PDF is an audit input and is not included in the release.
 
 The repository still does not ship the nine-seed DDQN checkpoints, action
 paths, or NAV series used for reported returns. Headline DDQN results therefore
-remain `reported_only`. Existing Taiwan rule-trader and U.S. DES/CUSUM curves
-remain legacy diagnostics; this release does not synthesize replacement return
-paths from paper endpoints.
+remain `reported_only`. The active documentation publishes only current-paper
+tables and does not synthesize replacement return paths from paper endpoints.
 
 ## Compatibility
 

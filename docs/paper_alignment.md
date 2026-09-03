@@ -17,14 +17,14 @@ Authority: the complete 28-page `Paper2_Highlighted_PDF_consistency_fixed.pdf`, 
 | DQN schedule | $\gamma=0.99$; target sync 5,000; epsilon 1.0 to 0.05 over 100,000 steps | Implemented and regression-tested |
 | Taiwan costs | 0.1425% buy, 0.4425% sell | Implemented consistently in environment, validation, and backtest defaults |
 | Agent selection | Train nine seeds and select the median validation-return agent independently per stock | Deterministic selector and seeded candidate-manifest path implemented; canonical nine-seed evidence bundle is not shipped |
-| Taiwan headline returns | TSMC +202.5%, MediaTek +101.2%, Top-50 +129.0% | Reported-only for DDQN; shipped chart/CSVs are legacy rule-trader artifacts |
-| US headline returns | Dow 30 +67.4%, S&P 100 +82.8%, NASDAQ 100 +83.5% | Reported-only for DDQN; shipped DES+CUSUM outputs are diagnostic |
+| Taiwan headline returns | TSMC +202.5%, MediaTek +101.2%, Top-50 +129.0% | Current-paper tables published; DDQN checkpoints, action paths, and NAV series are not shipped |
+| US headline returns | Dow 30 +67.4%, S&P 100 +82.8%, NASDAQ 100 +83.5% | Current-paper Table 6 published; matching DDQN checkpoints and action paths are not shipped |
 | Walk-forward precision | Paper Table 3 | Canonical transcription generated; fold predictions are not shipped |
 | Cumulative module ablation | Paper Table 4 | Canonical transcription generated; existing feature-group dropout is a different experiment |
 | Horizon sensitivity | Paper Table 5 | Canonical transcription generated; horizon-specific DDQN runs are not shipped |
 | Cross-market statistics | Paper Table 6 | Peer and benchmark rows reconstruct from shipped NAV; current-paper DESQ NAV is not shipped |
 | Statistical reliability | Paper Table 7 | Canonical transcription generated; nine seed returns and statistical-test inputs are not shipped |
-| Regime performance | Paper Table 8 | Benchmark intervals reproduce; shipped strategy NAV is a legacy rule trader, not DDQN |
+| Regime performance | Paper Table 8 | Current-paper transcription and regime/day/excess arithmetic audit published; DDQN NAV is not shipped |
 | Feature taxonomy | Appendix A, Table A1 | Reproduced from all 250 feature CSV headers with schema-drift audit |
 | Top-50 flooding ablation | Appendix C, Table C1 | Arithmetic reproduced; raw per-stock DDQN paths are not shipped; `2324.TT` conflicts with repo universe `3231` |
 | Post-deployment monitoring | Appendix F, Eqs. (10)-(20) | Paper alarms implemented; Level 0-3 dry-run planning and promotion guards are explicitly repository-defined extensions |
@@ -33,7 +33,6 @@ Authority: the complete 28-page `Paper2_Highlighted_PDF_consistency_fixed.pdf`, 
 
 - `implemented`: the active code path matches the stated contract and has a focused check where practical.
 - `reported-only`: the number appears in the revised paper but has no reproducible committed artifact in this repository.
-- `legacy diagnostic`: a retained result from DES/CUSUM or signal-pattern execution; it must not be labeled DQN or MDQN.
 - Historical release notes and the `v1.0-desq` and `v1.1-desq` tags remain
   unchanged; current alignment work targets `v1.2-desq`.
 

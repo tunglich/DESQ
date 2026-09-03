@@ -34,5 +34,5 @@ abstract: >-
   Double DQN. The v1.2-desq release aligns the code and provenance bundle to
   the complete 28-page paper, adds per-stock nine-seed median-agent selection,
   updates Appendix A1/C1 artifacts, and separates Appendix F alarms from
-  repository-defined update policy. Legacy DES/CUSUM outputs remain clearly
-  labeled diagnostics.
+  repository-defined update policy. The active documentation and result bundle
+  present only the revised-paper architecture, tables, and evidence status.

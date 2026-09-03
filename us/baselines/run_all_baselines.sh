@@ -69,7 +69,7 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# 2 + 3. Rerun baselines and combined comparison
+# 2. Rerun peer baselines
 # -----------------------------------------------------------------------------
 if [ "$VERIFY_ONLY" = 0 ]; then
   for U in dow30 sp100 ndx100; do
@@ -80,10 +80,6 @@ if [ "$VERIFY_ONLY" = 0 ]; then
     echo "=== MACE / $U ==="
     $PY "$BASELINES_DIR/mi_abbade/mace_backtest.py" "$U"
   done
-
-  echo ""
-  echo "=== combined_comparison ==="
-  $PY "$BASELINES_DIR/combined/combined_comparison.py"
 else
   echo "[SKIP] --verify-only given; not rerunning baselines."
 fi

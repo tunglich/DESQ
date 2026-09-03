@@ -21,9 +21,9 @@ Notes
 -----
 - Files present in shipped but missing in rerun are FAIL. Files in rerun but
   not shipped are ignored (may be intermediate artifacts).
-- The comparison focuses on `metrics.csv`, `predictions.csv`, `selections.csv`,
-  `equity_*.csv`, `combined_stats.csv`, `*_comparison.csv`. Override with
-  `--pattern`.
+- The comparison focuses on peer-method `metrics.csv`, `predictions.csv`,
+  `selections.csv`, `equity_*.csv`, and current Table 6 `*_comparison.csv`
+  inputs. Override with `--pattern`.
 """
 
 from __future__ import annotations
@@ -45,9 +45,7 @@ DEFAULT_PATTERNS = (
     'predictions.csv',
     'selections.csv',
     'equity_*.csv',
-    'combined_stats.csv',
     '*_comparison.csv',
-    'combined_metrics.csv',
 )
 
 

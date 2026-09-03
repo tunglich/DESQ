@@ -55,67 +55,36 @@ are not shipped. See [evaluation/paper/README.md](evaluation/paper/README.md).
 | MediaTek (2454.TT) | **+101.20%** | +62.69% | [Appendix C Table C1](evaluation/paper/tables/table10_top50_flooding.csv) |
 | TWSE Top-50 portfolio | **+129.0%** | +88.07% | [evaluation/paper/tables/table8_regime.csv](evaluation/paper/tables/table8_regime.csv) |
 
-### Legacy diagnostic
+### Current-paper result bundle
 
-The shipped chart below evaluates KNORA-E with the earlier signal-pattern
-trader over 2024-01-02 to 2026-03-31. It is retained only for audit comparison
-and does not override the revised-paper values above.
+The repository publishes deterministic, machine-readable transcriptions and
+audits for every numerical table in the revised paper:
 
-![Out-of-sample back-tests](evaluation/figure_backtest_overview.png)
+| Paper artifact | Subject | Repository artifact |
+| --- | --- | --- |
+| Table 3 | Five walk-forward folds and sealed holdout precision | [table3_walk_forward.md](evaluation/paper/tables/table3_walk_forward.md) |
+| Table 4 | Cumulative module ablation | [table4_module_ablation.md](evaluation/paper/tables/table4_module_ablation.md) |
+| Table 5 | Signal-horizon sensitivity | [table5_horizon.md](evaluation/paper/tables/table5_horizon.md) |
+| Table 6 | Dow 30, S&P 100, and NASDAQ 100 DDQN results | [table6_cross_market.md](evaluation/paper/tables/table6_cross_market.md) |
+| Table 7 | Nine-seed uncertainty and statistical reliability | [table7_uncertainty.md](evaluation/paper/tables/table7_uncertainty.md) |
+| Table 8 | Regime-conditional Top-50 performance | [table8_regime.md](evaluation/paper/tables/table8_regime.md) |
+| Table A1 | Five-group, 78-feature taxonomy | [table9_feature_taxonomy.md](evaluation/paper/tables/table9_feature_taxonomy.md) |
+| Table C1 | Per-stock Dynamic-Flooding ablation | [table10_top50_flooding.md](evaluation/paper/tables/table10_top50_flooding.md) |
 
-| Panel | Legacy rule-trader return | Buy-and-hold cumulative return | Source CSV |
-| --- | ---: | ---: | --- |
-| TSMC (2330.TT) | **+202.53 %** | +201.82 % | [evaluation/backtest_2330.csv](evaluation/backtest_2330.csv) |
-| MediaTek (2454.TT) | **+103.42 %** | +62.69 % | [evaluation/backtest_2454.csv](evaluation/backtest_2454.csv) |
-| TW-50 Model Portfolio (vs TWA02) | **+131.37 %** | +88.07 % | [evaluation/backtest_portfolio_tw50.csv](evaluation/backtest_portfolio_tw50.csv) |
+Current-paper U.S. DDQN returns are **67.4%** for the Dow 30, **82.8%** for
+the S&P 100, and **83.5%** for the NASDAQ 100. Complete annual return,
+volatility, Sharpe, Sortino, drawdown, Calmar, benchmark, and peer-method
+comparisons are in Table 6.
 
-Regenerate the figure directly from the shipped CSVs with:
+### Runtime reported in Table E1
 
-```bash
-python evaluation/render_figure_backtest.py
-```
-
-The CSV schemas are:
-
-- Single-stock panels (`backtest_2330.csv`, `backtest_2454.csv`): `Date, Model_Return_Pct, Stock_Return_Pct, Model_Return_Ratio, Stock_Return_Ratio`.
-- Portfolio panel (`backtest_portfolio_tw50.csv`): `Date, Model_CumRet, Benchmark_CumRet, Model_CumRet_Pct, Benchmark_CumRet_Pct`.
-
-### US extension — retained four-method legacy diagnostic
-
-The shipped US comparison is also **legacy DES+CUSUM evidence**. It has not yet been regenerated through the revised paper's Double-DQN execution layer and is retained as a diagnostic comparison only. See the [US extension README](us/README.md) and [alignment ledger](docs/paper_alignment.md).
-
-![Four methods across three US universes](us/baselines/combined/four_methods_1x3.png)
-
-| Universe | Legacy DES+CUSUM | DSR — Yang 2018 | DRL Ensemble — Yang 2020 | MACE — Abbade 2026 | Benchmark index |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Dow 30     | **+68.6 %** | +11.8 % | +28.6 % | +65.5 % | +19.9 % (^DJI) |
-| S&P 100    | **+89.5 %** | +64.5 % | +25.8 % | +34.3 % | +39.0 % (^OEX) |
-| NASDAQ 100 | **+92.1 %** | +79.5 % | +51.6 % | +41.0 % | +38.7 % (^NDX) |
-
-Per-day cumulative-return CSVs (columns: `date, DESQ, DRL Ensemble, Dynamic Stock Recommendation, MACE, <benchmark>`):
-
-- [us/baselines/combined/dow30_comparison.csv](us/baselines/combined/dow30_comparison.csv)
-- [us/baselines/combined/sp100_comparison.csv](us/baselines/combined/sp100_comparison.csv)
-- [us/baselines/combined/ndx100_comparison.csv](us/baselines/combined/ndx100_comparison.csv)
-
-Full stats (Sharpe / Sortino / MaxDD / Calmar): [us/baselines/combined/combined_stats.md](us/baselines/combined/combined_stats.md) · [combined_stats.csv](us/baselines/combined/combined_stats.csv). Regenerate the figure with `python us/baselines/combined/combined_comparison.py`.
-
-### Training time (single stock)
-
-Measured on RTX 5090 and RTX 5080 (WSL2 Ubuntu-24.04, TF 2.21, `finlab` conda env). Wall-clock time is essentially the same on both cards for this workload.
-
-| Stage | Script | Time per stock |
+| Cost item | Scope | Approximate time |
 | --- | --- | ---: |
-| Phase 1 — hyperparameter search (Bayesian) | `ATT+Flood.py` | ~3 h |
-| Phase 2 — Dynamic Flooding retraining (18 repeats, top-3 kept) | `ATT+Dflooding.py` | ~2 h |
-| DES ensemble (RF + KNORA-E + CUSUM + backtest) | `DES_update_ATT-sentiment.py` | ~5 min |
-| **Total per stock** (6 aspects, ATT only) | Batch_training agent | **~5 h** |
-
-Reference guides for the internal end-to-end training pipeline that produced the above experimental results (uses the parent workspace's ATT scripts, not the compact `tw50_flood.py` / `tw50_dflood.py` / `tw50_des.py` demos in this repo):
-
-- [docs/att_batch_training/README_Batch_training.md](docs/att_batch_training/README_Batch_training.md) — Batch_training agent (RTX 5090)
-- [docs/att_batch_training/README_Batch_training_5080.md](docs/att_batch_training/README_Batch_training_5080.md) — Batch_training agent (RTX 5080)
-- [docs/att_batch_training/README_DES.md](docs/att_batch_training/README_DES.md) — DES ensemble execution guide
+| Supervised DESQ model building | One stock | ~4 h |
+| Nine independent DDQN execution trials | One stock | ~15 h |
+| Daily feature refresh | 500-stock pool | ~1.5 h |
+| Daily inference, DES, and DDQN update | 500-stock pool | ~1.5 h |
+| **Daily operation total** | **500-stock pool** | **~3 h** |
 
 ## Data window
 
@@ -161,7 +130,7 @@ features (5 aspects)│  tw50_flood.py  │  Bayesian tuning over ATT hyperparam
                              ▼
                     ┌─────────────────┐
                     │  tw50_des.py    │  KNORA-E (K=30) over 5 ATT probabilities
-                    │   (Stage 3)     │  rule-based backtest retained as diagnostic
+                    │   (Stage 3)     │  probability-valued local-oracle aggregation
                     │                 │  --strict-oof aborts if any aspect's
                     │                 │  DES-train rows are not source='oof'
                     └────────┬────────┘  Writes DES probabilities
@@ -192,14 +161,14 @@ tw50_pipeline/
 ├── fetch_prices.py              # yfinance -> prices/<id>.csv helper
 ├── tw50_flood.py                # Stage 1: hyperparameter + flooding-b search
 ├── tw50_dflood.py               # Stage 2: Dynamic Flooding retrain + predict (--des-oof)
-├── tw50_des.py                  # Stage 3: KNORA-E ensemble + diagnostic backtest
+├── tw50_des.py                  # Stage 3: KNORA-E probability aggregation
 ├── Makefile                     # one-command recipes (Linux/WSL/macOS)
 ├── run.ps1                      # equivalent PowerShell task runner (Windows)
 ├── artifacts/                   # generated at runtime (git-ignored)
 │   ├── flood/{hyperbayes,feature_selection,feature_scaler,experiments}/
 │   ├── dflood/{feature_selection,feature_scaler,models,pred}/
 │   └── des/{pred,models,backtest}/
-├── evaluation/                  # shipped back-test CSVs + figure regen script
+├── evaluation/paper/            # revised-paper tables, sources, and audits
 └── dqn/                         # Stage 4: paper-aligned Double DQN execution
 ```
 
@@ -242,7 +211,6 @@ Use the shipped task runners to avoid copy-pasting stage-by-stage:
 
 ```bash
 # Linux / WSL / macOS
-make smoke        # in-sample DES-fit (legacy behaviour)
 make smoke-oof    # OOF DES-fit (leakage-free; recommended)
 make full-2330    # production settings for TSMC (~20 min on GPU, uses --des-oof)
 make seed-sweep   # multi-seed Stage 3 sweep -> mean +/- std CSV (§IV.H evidence)
@@ -276,12 +244,12 @@ python scripts/run_seed_sweep.py --stock-ids 2330,2454 \
 Pass `--stages 23` or `--stages 123` to also retrain Stage 2 / Stages 1+2 per seed
 (slower; used when reviewers question tuner determinism).
 
-### Baseline reproducibility (US market: DSR-Yang, MACE, combined)
+### Table 6 peer-method reproducibility
 
-The `us/baselines/` tree ships CSV outputs from the DSR-Yang and MACE baselines
-across `dow30 / sp100 / ndx100`, plus the joint `combined_comparison.py`
-summary. Reviewers with the required US price data (default `d:\US_stock`) can
-regenerate every CSV and diff it against what we ship:
+The `us/baselines/` tree contains implementations and audit inputs for the
+DSR-Yang, DRL Ensemble, and MACE peer rows in current-paper Table 6 across
+`dow30 / sp100 / ndx100`. Reviewers with the required U.S. price data can
+regenerate the peer CSVs and diff them against the shipped validation inputs:
 
 ```bash
 # 1) One-shot: snapshot shipped CSVs, rerun all baselines, diff (tol=1e-6).
@@ -292,12 +260,10 @@ make rerun-baselines
 make verify-baselines
 ```
 
-`verify_baselines.py` walks `_shipped_snapshot/` recursively, matches every
-`metrics.csv`, `predictions.csv`, `selections.csv`, `equity_*.csv`,
-`combined_stats.csv`, `*_comparison.csv`, prints a per-file `PASS/FAIL` with the
-worst-numerical-column diff, and exits `1` on any drift. This gives reviewers a
-one-command falsifiable check that the shipped baselines are not hand-tuned
-snapshots.
+`verify_baselines.py` walks `_shipped_snapshot/` recursively, matches method
+metrics, predictions, selections, equity paths, and Table 6 comparison inputs,
+prints a per-file `PASS/FAIL` with the worst numerical-column diff, and exits
+`1` on any drift.
 
 ### Reviewer reproducibility kit (public data only, 10 min CPU)
 

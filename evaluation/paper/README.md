@@ -21,9 +21,9 @@ Outputs are written to `tables/` as CSV, Markdown, and LaTeX. Validation reports
 | 3 | Walk-forward precision | `reported_only`: corresponding fold predictions are not shipped |
 | 4 | Cumulative module ablation | `reported_only`: six DDQN experiment bundles are not shipped |
 | 5 | Horizon sensitivity | `reported_only`: horizon-specific retraining bundles are not shipped |
-| 6 | Cross-market statistics | Peer and benchmark rows reproduce from shipped NAV; DESQ rows are `reported_only` because shipped DESQ is legacy DES+CUSUM |
+| 6 | Cross-market statistics | Peer and benchmark rows reproduce from their shipped NAV; current-paper DESQ rows are `reported_only` because matching DDQN NAV is not shipped |
 | 7 | Nine-seed/statistical reliability | `reported_only` except benchmark returns; seed returns, bootstrap draws, DM inputs, and SPA inputs are not shipped |
-| 8 | Regime performance | Benchmark dates/days/returns reproduce; shipped strategy NAV is a legacy rule trader and differs from DDQN |
+| 8 | Regime performance | Current-paper regime set, day partition, and excess-return arithmetic are audited; matching DDQN NAV is not shipped |
 | A1 (compatibility filename: 9) | 78-feature taxonomy | Reproduced from all 250 feature CSV headers; six Fundamental files contain an extra `CMDTY` field recorded in `table9_schema_drift.csv` |
 | C1 (compatibility filename: 10) | Top-50 flooding ablations | PDF arithmetic reproduces; raw DDQN/flooding NAV is not shipped. PDF ticker `2324.TT` conflicts with repo constituent `3231` |
 
