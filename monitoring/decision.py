@@ -5,7 +5,14 @@ from dataclasses import asdict, dataclass
 from typing import Any, Iterable
 
 
-ALARM_NAMES = ("precision", "sharpe", "information_ratio", "feature_drift", "disagreement")
+ALARM_NAMES = (
+    "precision_gap",
+    "return_gap",
+    "risk",
+    "disagreement",
+    "flooding_saturation",
+    "feature_drift",
+)
 
 
 @dataclass(frozen=True)
@@ -21,6 +28,7 @@ class DiagnosticWindow:
     flooding_upper_fraction: float
     max_psi: float
     affected_groups: tuple[str, ...] = ()
+    regime_signature: str | None = None
 
 
 @dataclass(frozen=True)
@@ -51,13 +59,15 @@ class DecisionReport:
 def compute_alarms(window: DiagnosticWindow, policy: dict[str, Any]) -> tuple[str, ...]:
     thresholds = policy["alarm_thresholds"]
     alarms = {
-        "precision": window.precision_gap > float(thresholds["precision_gap"]),
-        "sharpe": window.sharpe < float(thresholds["sharpe_lower_limit"]),
-        "information_ratio": (
-            window.information_ratio < float(thresholds["information_ratio_lower_limit"])
-        ),
-        "feature_drift": window.max_psi > float(thresholds["psi"]),
+        "precision_gap": window.precision_gap > float(thresholds["precision_gap"]),
+        "return_gap": window.return_gap > float(thresholds["return_gap"]),
+        "risk": window.sharpe < 0.0 or window.information_ratio < 0.0,
         "disagreement": window.disagreement > window.training_disagreement_q90,
+        "flooding_saturation": (
+            window.flooding_upper_fraction
+            > float(thresholds["flooding_upper_fraction"])
+        ),
+        "feature_drift": window.max_psi > 0.25,
     }
     return tuple(name for name in ALARM_NAMES if alarms[name])
 
@@ -74,7 +84,7 @@ def decide_stock(current: DiagnosticWindow, previous: DiagnosticWindow,
     previous_alarms = compute_alarms(previous, policy)
     triggered = len(current_alarms) >= 2 and len(previous_alarms) >= 2
     groups = current.affected_groups if triggered else ()
-    reason = ("Reference trigger: at least two alarms fired in adjacent mature windows"
+    reason = ("Appendix F trigger: at least two alarms fired in adjacent mature windows"
               if triggered else "Reference mature-window trigger did not fire")
     return StockDecision(current.stock_id, True, current_alarms, previous_alarms,
                          triggered, groups, reason)
@@ -102,12 +112,18 @@ def decide(current: Iterable[DiagnosticWindow], previous: Iterable[DiagnosticWin
         portfolio_decision = decide_stock(portfolio_current, portfolio_previous, policy,
                                           minimum_mature_anchors)
         stock_decisions.append(portfolio_decision)
-        if portfolio_decision.update_triggered and portfolio_decision.affected_groups:
+        if portfolio_decision.update_triggered:
             portfolio_groups = set(portfolio_decision.affected_groups)
-            matched = {
+            matched_by_group = {
                 window.stock_id for window in current_windows
                 if portfolio_groups.intersection(window.affected_groups)
             }
+            matched_by_regime = {
+                window.stock_id for window in current_windows
+                if portfolio_current.regime_signature
+                and window.regime_signature == portfolio_current.regime_signature
+            }
+            matched = matched_by_group | matched_by_regime
             if len(matched) >= 2:
                 affected_stocks.update(matched)
                 affected_groups.update(portfolio_groups)
@@ -116,11 +132,21 @@ def decide(current: Iterable[DiagnosticWindow], previous: Iterable[DiagnosticWin
     decisions = tuple(stock_decisions)
     if not stocks:
         return DecisionReport(0, "no_update", True, decisions, (), ())
-    if recalibration_status in {"not_evaluated", "promoted"}:
-        action = "evaluate_level_1_recalibration" if recalibration_status == "not_evaluated" else "deploy_level_1"
-        return DecisionReport(1, action, True, decisions, stocks, groups)
-    if recalibration_status != "failed":
-        raise ValueError("recalibration_status must be not_evaluated, promoted, or failed")
+    if recalibration_status == "not_evaluated":
+        return DecisionReport(1, "evaluate_level_1_threshold", True, decisions, stocks, groups)
+    if recalibration_status in {"threshold_promoted", "promoted"}:
+        return DecisionReport(1, "record_level_1_threshold_promotion", True,
+                              decisions, stocks, groups)
+    if recalibration_status == "threshold_failed":
+        return DecisionReport(1, "evaluate_level_1_des_weights", True, decisions, stocks, groups)
+    if recalibration_status == "weights_promoted":
+        return DecisionReport(1, "record_level_1_des_weights_promotion", True,
+                              decisions, stocks, groups)
+    if recalibration_status not in {"weights_failed", "failed"}:
+        raise ValueError(
+            "recalibration_status must be not_evaluated, threshold_promoted, "
+            "threshold_failed, weights_promoted, or weights_failed"
+        )
     broad = policy["broad_drift"]
     if len(stocks) >= int(broad["minimum_stocks"]) or len(groups) >= int(broad["minimum_feature_groups"]):
         return DecisionReport(3, "full_retraining", True, decisions, stocks, groups)
@@ -128,17 +154,17 @@ def decide(current: Iterable[DiagnosticWindow], previous: Iterable[DiagnosticWin
                           decisions, stocks, groups)
 
 
-def promotion_allowed(delta_objective: float, delta_sharpe: float,
+def promotion_allowed(delta_precision: float, delta_sharpe: float,
                       delta_turnover: float, delta_drawdown: float,
                       changed_parameters: set[str], policy: dict[str, Any],
                       immutable_unchanged: bool) -> bool:
     limits = policy["promotion"]
     allowed = set(policy["repository_update_extension"]["theta_allow"])
     return (
-        delta_objective > float(limits["minimum_cost_aware_objective_improvement"])
-        and delta_sharpe >= -float(limits["maximum_sharpe_decrease"])
-        and delta_turnover <= float(limits["maximum_turnover_increase"])
-        and delta_drawdown <= float(limits["maximum_drawdown_increase"])
+        delta_precision > float(limits["minimum_precision_improvement"])
+        and delta_sharpe > -float(limits["maximum_sharpe_decrease"])
+        and delta_turnover < float(limits["maximum_turnover_increase"])
+        and delta_drawdown < float(limits["maximum_drawdown_increase"])
         and changed_parameters <= allowed
         and immutable_unchanged
     )

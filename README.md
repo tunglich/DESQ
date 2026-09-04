@@ -28,11 +28,11 @@ Regenerate the figure with `python docs/_render_training_pipeline.py`.
 ## Self-improving monitoring protocol
 
 The `monitoring` package implements the reference monitoring equations:
-mature-label filtering, predictive/trading diagnostics, a five-alarm trigger over
-two adjacent mature windows, immutable evaluations, and non-executing update
-plans. A hypothetical localized Level-2 case is represented without claiming
-that monitoring was active in the reported experiments. General Level
-0-3 routing and numerical thresholds remain labeled repository operational
+mature-label filtering, the Appendix F six-alarm trigger over two adjacent
+mature windows, threshold-first and DES-weight-second recalibration, Level 2/3
+escalation, and immutable Eq. (43) research memory. All candidate plans remain
+non-executing, and monitoring was not active in the reported experiments.
+Numerical values not fixed by the paper remain labeled repository operational
 policy.
 
 Start with `python -m monitoring smoke` and `python -m monitoring show-config`.

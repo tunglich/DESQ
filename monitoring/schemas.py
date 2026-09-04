@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 
 def canonical_json(value: Any) -> str:
@@ -88,6 +88,8 @@ class CandidateStep:
     stocks: tuple[str, ...]
     aspects: tuple[str, ...]
     changed_parameters: tuple[str, ...]
+    mature_data_only: bool = True
+    validation_scope: str = "sealed_validation"
 
 
 @dataclass(frozen=True)
@@ -104,4 +106,46 @@ class CandidatePlan:
 
     @property
     def plan_id(self) -> str:
+        return content_hash(self.payload())
+
+
+@dataclass(frozen=True)
+class AlarmMemory:
+    stock_id: str
+    previous: tuple[str, ...]
+    current: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class MetricDeltaMemory:
+    stock_id: str
+    precision: float
+    sharpe: float
+    disagreement: float
+    drift: float
+    drawdown: float | None = None
+    turnover: float | None = None
+
+
+@dataclass(frozen=True)
+class ResearchMemoryRecord:
+    previous_batch_id: str
+    current_batch_id: str
+    window_start: str
+    window_end: str
+    alarms: tuple[AlarmMemory, ...]
+    regime_signatures: tuple[str, ...]
+    candidate_plan_id: str
+    candidate_parameters: tuple[str, ...]
+    promotion_status: str
+    promoted: bool | None
+    metric_deltas: tuple[MetricDeltaMemory, ...]
+    source_equation: int = 43
+    schema_version: str = SCHEMA_VERSION
+
+    def payload(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @property
+    def record_id(self) -> str:
         return content_hash(self.payload())

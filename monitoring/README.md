@@ -1,40 +1,43 @@
 # Self-improving monitoring protocol
 
-This package implements the reference post-deployment monitoring equations.
+This package implements Appendix F of `paper_extention_momemtum_titles.pdf`
+(SHA-256 `0bf0c4ed7caba508ef96cfc4dd8ddcd8a7f725d0ba7ab38291d3330ea663914e`).
 Monitoring was not active during the reported experiments, so these outputs do
 not reproduce or alter the recorded performance results.
 
 The implementation is fail-closed and read-only:
 
-- metric functions implement Eqs. (10)-(20);
+- metric and recalibration functions implement Eqs. (10)-(20), (25)-(26), and
+  (29)-(32);
 - two mature, non-overlapping windows are required for an update trigger;
 - inputs must match the active reference-contract and operational-policy hashes;
-- decisions and plans are content-addressed immutable JSON;
+- evaluations, plans, and Eq. (43) research memory are content-addressed JSON;
 - every candidate plan has `dry_run=true` and `executable=false`.
 
 ## Reference contract
 
 Monitoring uses a 60-trading-day lookback and a 20-day label horizon. Therefore
 each evaluation window contains 40 matured anchors: `L - h = 60 - 20`. The
-explicit trigger contains five alarm types:
+formal trigger in Eqs. (22)-(23) contains six alarm types:
 
-1. validation-to-live precision degradation;
-2. rolling Sharpe below its prescribed lower limit;
-3. rolling information ratio below its prescribed lower limit;
-4. maximum feature-group PSI above its threshold;
-5. DES disagreement above its training-period 90th percentile.
+1. validation-to-live precision gap;
+2. DES-implied versus realized return gap;
+3. negative rolling Sharpe or information ratio (one combined risk alarm);
+4. DES disagreement above its training-period 90th percentile;
+5. Dynamic-Flooding upper-bound saturation;
+6. maximum feature-group PSI above 0.25.
 
 An update is queued only when at least two alarm types fire in both the current
-and immediately preceding mature windows. Return shortfall and Dynamic-Flooding
-upper-bound frequency remain recorded diagnostics, but they are not members of
-the explicit five-alarm trigger set.
+and immediately preceding mature windows. Eq. (21)'s five-alarm expression is
+the preceding illustrative case; Eqs. (22)-(23) govern the formal lifecycle.
 
-A hypothetical localized-degradation example uses Level 2 to
-fine-tunes only affected stock-group specialists on matured observations,
-refits DES on sealed validation data, and promotes only when a cost-aware
-validation objective improves without violating turnover or drawdown limits.
-The general Level 0-3 routing, numerical thresholds, candidate budget, and
-additional promotion guards in this package are repository operational policy.
+Level 1 first evaluates threshold recalibration and then DES-weight
+recalibration. Only if both fail can persistent local drift reach Level 2 or
+broad drift reach Level 3. Level 2 fine-tunes affected stock-group specialists
+using mature labels only and refits DES on sealed validation; Level 3 reruns the
+original walk-forward/AutoML path and performs a portfolio-wide DES refit.
+Unspecified coefficients, tolerances, and broad-drift cutoffs remain labeled
+repository `operational_policy`.
 
 ## Components
 
@@ -42,7 +45,8 @@ additional promotion guards in this package are repository operational policy.
 | --- | --- |
 | `metrics.py` | Pure implementations of Eqs. (10)-(20) |
 | `adapters.py` | Read-only Stage-2 prediction adapter with label maturity filtering |
-| `decision.py` | Five reference alarms, adjacent-window trigger, and policy routing |
+| `decision.py` | Six Appendix F alarms, adjacent-window trigger, and Level 0-3 routing |
+| `updates.py` | Pure threshold-objective and DES-weight recalibration equations |
 | `protocol.py` | Validated diagnostic batches and immutable evaluation artifacts |
 | `planner.py` | Non-executing Level 0-3 candidate plans |
 | `config/reference_contract.json` | Reference invariants and trigger structure |
@@ -109,9 +113,10 @@ matured anchors to be eligible. The evaluator verifies the declared indices;
 the upstream collector remains responsible for binding indices to calendar
 dates and preserving that calendar as a hashed source artifact.
 
-An optional top-level `portfolio_window` accepts the same fields as an item in
-`windows`. A portfolio alarm can batch stocks only when at least two stock
-windows name a feature group also listed in the triggered portfolio window.
+Each window may also include a `regime_signature`. An optional top-level
+`portfolio_window` accepts the same fields. A portfolio alarm can batch stocks
+when at least two windows share an affected feature group or the triggered
+portfolio regime signature.
 
 Evaluate the current and previous batches:
 
@@ -121,10 +126,13 @@ python -m monitoring evaluate \
   --current diagnostics/2026-Q2.json
 ```
 
-Use `--recalibration-status failed` only after a separately sealed Level-1
-candidate evaluation has failed. This allows repository policy to route local
-drift to Level 2 or broad drift to Level 3. Evaluation output is written under
-`artifacts/monitoring/evaluations/<evaluation_id>/evaluation.json`.
+The default queues threshold recalibration. Re-evaluate with
+`--recalibration-status threshold_failed` to queue DES-weight recalibration.
+Use `weights_failed` only after both sealed Level-1 candidates fail; this routes
+local drift to Level 2 or broad drift to Level 3. The corresponding
+`threshold_promoted` and `weights_promoted` values record successful gates.
+Each evaluation directory contains `evaluation.json` and
+`research_memory.json`.
 
 ## Metric API
 

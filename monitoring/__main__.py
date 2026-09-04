@@ -28,12 +28,13 @@ def run_smoke() -> int:
     stable = decide([_synthetic("2330", False)], [_synthetic("2330", False)], policy)
     local_windows = [_synthetic("2330", True, ("macro",))]
     level_one = decide(local_windows, local_windows, policy)
-    level_two = decide(local_windows, local_windows, policy, "failed")
+    weight_recalibration = decide(local_windows, local_windows, policy, "threshold_failed")
+    level_two = decide(local_windows, local_windows, policy, "weights_failed")
     broad_windows = [_synthetic(str(2300 + index), True,
                                 ("fundamental", "trend", "macro")) for index in range(10)]
-    level_three = decide(broad_windows, broad_windows, policy, "failed")
+    level_three = decide(broad_windows, broad_windows, policy, "weights_failed")
     plans = [build_plan(report, policy) for report in
-             (stable, level_one, level_two, level_three)]
+             (stable, level_one, weight_recalibration, level_two, level_three)]
     observed = [stable.level, level_one.level, level_two.level, level_three.level]
     if observed != [0, 1, 2, 3]:
         raise RuntimeError(f"monitoring smoke failed: {observed}")
@@ -90,6 +91,7 @@ def evaluate_protocol(args: argparse.Namespace) -> int:
         "action": evaluation.decision.action,
         "dry_run": evaluation.candidate_plan.dry_run,
         "executable": evaluation.candidate_plan.executable,
+        "research_memory_id": evaluation.research_memory.record_id,
         "path": str(destination),
     }))
     return 0
@@ -117,7 +119,8 @@ def main() -> int:
     evaluate.add_argument("--current", type=Path, required=True)
     evaluate.add_argument("--previous", type=Path, required=True)
     evaluate.add_argument("--recalibration-status",
-                          choices=("not_evaluated", "promoted", "failed"),
+                          choices=("not_evaluated", "threshold_promoted", "threshold_failed",
+                                   "weights_promoted", "weights_failed"),
                           default="not_evaluated")
     evaluate.add_argument("--output-root", type=Path,
                           default=REPO_ROOT / "artifacts" / "monitoring" / "evaluations")

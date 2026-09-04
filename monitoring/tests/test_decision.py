@@ -36,14 +36,14 @@ class DecisionTest(unittest.TestCase):
     def test_two_consecutive_alarm_windows_queue_level_one(self) -> None:
         current = [window("2330", alarms=True, groups=("macro",))]
         report = decide(current, current, self.policy)
-        self.assertEqual((report.level, report.action), (1, "evaluate_level_1_recalibration"))
+        self.assertEqual((report.level, report.action), (1, "evaluate_level_1_threshold"))
 
     def test_failed_recalibration_escalates_local_and_broad_drift(self) -> None:
         local = [window("2330", alarms=True, groups=("macro",))]
-        self.assertEqual(decide(local, local, self.policy, "failed").level, 2)
+        self.assertEqual(decide(local, local, self.policy, "weights_failed").level, 2)
         broad = [window(str(2300 + index), alarms=True,
                         groups=("fundamental", "trend", "macro")) for index in range(10)]
-        self.assertEqual(decide(broad, broad, self.policy, "failed").level, 3)
+        self.assertEqual(decide(broad, broad, self.policy, "weights_failed").level, 3)
 
     def test_insufficient_data_never_triggers(self) -> None:
         short = [window("2330", alarms=True, samples=39)]
@@ -59,26 +59,38 @@ class DecisionTest(unittest.TestCase):
         report = decide([exact], [exact], self.policy)
         self.assertEqual(report.stock_decisions[0].current_alarms, ())
 
-    def test_reference_trigger_uses_five_named_alarm_types(self) -> None:
-        diagnostic_only = DiagnosticWindow("2330", 40, 0.01, 0.50, 1.0, 1.0,
-                                           0.1, 0.2, 1.0, 0.1, ("macro",))
-        report = decide([diagnostic_only], [diagnostic_only], self.policy)
-        self.assertEqual(report.stock_decisions[0].current_alarms, ())
-
-        risk = DiagnosticWindow("2330", 40, 0.01, 0.0, -0.1, -0.1,
-                                0.1, 0.2, 0.1, 0.1, ("macro",))
+    def test_appendix_trigger_uses_six_named_alarm_types(self) -> None:
+        risk = DiagnosticWindow("2330", 40, 0.01, 0.0, -0.1, 0.1,
+                                0.1, 0.2, 0.3, 0.1, ("macro",))
         report = decide([risk], [risk], self.policy)
         self.assertEqual(
             report.stock_decisions[0].current_alarms,
-            ("sharpe", "information_ratio"),
+            ("risk", "flooding_saturation"),
         )
         self.assertTrue(report.stock_decisions[0].update_triggered)
+
+    def test_level_one_threshold_then_weights_before_escalation(self) -> None:
+        local = [window("2330", alarms=True, groups=("macro",))]
+        threshold_plan = build_plan(decide(local, local, self.policy), self.policy)
+        self.assertEqual(threshold_plan.steps[0].name, "sealed_threshold_recalibration")
+        self.assertEqual(
+            decide(local, local, self.policy, "threshold_failed").action,
+            "evaluate_level_1_des_weights",
+        )
+        weight_plan = build_plan(
+            decide(local, local, self.policy, "threshold_failed"), self.policy
+        )
+        self.assertEqual(weight_plan.steps[0].name, "sealed_des_weight_recalibration")
+        self.assertEqual(
+            decide(local, local, self.policy, "weights_promoted").action,
+            "record_level_1_des_weights_promotion",
+        )
 
     def test_repository_promotion_gate(self) -> None:
         self.assertTrue(promotion_allowed(0.01, 0.01, -0.01, -0.01,
                                           {"des_threshold"}, self.policy, True))
-        self.assertTrue(promotion_allowed(0.01, 0.0, 0.0, 0.0,
-                                          {"des_threshold"}, self.policy, True))
+        self.assertFalse(promotion_allowed(0.01, 0.0, 0.0, 0.0,
+                           {"des_threshold"}, self.policy, True))
         self.assertFalse(promotion_allowed(0.01, 0.01, -0.01, -0.01,
                                            {"label_definition"}, self.policy, True))
         self.assertFalse(promotion_allowed(0.01, 0.01, -0.01, -0.01,
@@ -86,7 +98,7 @@ class DecisionTest(unittest.TestCase):
 
     def test_candidate_plan_is_dry_run_and_within_theta_allow(self) -> None:
         windows = [window("2330", alarms=True, groups=("macro",))]
-        report = decide(windows, windows, self.policy, "failed")
+        report = decide(windows, windows, self.policy, "weights_failed")
         plan = build_plan(report, self.policy)
         self.assertEqual(plan.decision_level, 2)
         self.assertTrue(plan.dry_run)
@@ -106,6 +118,18 @@ class DecisionTest(unittest.TestCase):
         report = decide(stocks, stocks, self.policy,
                         portfolio_current=portfolio, portfolio_previous=portfolio)
         self.assertEqual(report.level, 1)
+        self.assertEqual(report.affected_stocks, ("2330", "2454"))
+
+    def test_portfolio_alarm_can_batch_shared_regime(self) -> None:
+        stocks = [
+            DiagnosticWindow(stock, 40, 0.01, 0.0, 1.0, 1.0, 0.1, 0.2,
+                             0.1, 0.1, (), "high-volatility")
+            for stock in ("2330", "2454")
+        ]
+        portfolio = DiagnosticWindow("TW50_PORTFOLIO", 40, 0.06, 0.01, 1.0, 1.0,
+                                     0.1, 0.2, 0.1, 0.1, (), "high-volatility")
+        report = decide(stocks, stocks, self.policy,
+                        portfolio_current=portfolio, portfolio_previous=portfolio)
         self.assertEqual(report.affected_stocks, ("2330", "2454"))
 
 

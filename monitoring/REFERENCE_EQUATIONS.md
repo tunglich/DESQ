@@ -15,27 +15,31 @@ empirical performance.
 - Eq. (17): capital-weighted portfolio and benchmark returns.
 - Eqs. (18)-(20): DES disagreement, Dynamic-Flooding upper-bound frequency,
   and feature-group PSI.
-- The explicit trigger set is precision, Sharpe, information ratio, PSI drift,
-  and DES disagreement. At least two must fire at monitoring anchors `t` and
-  `t-L`. Return shortfall and Flooding saturation are diagnostics, not members
-  of this five-alarm set.
+- Eq. (21) is the paper's illustrative five-alarm case. The formal operational
+  trigger in Eqs. (22)-(23) uses precision gap, return gap, combined negative
+  Sharpe/IR risk, DES disagreement, Flooding saturation, and PSI drift. At
+  least two must fire at monitoring anchors `t` and `t-L`.
+- Eqs. (24)-(27): threshold grid, cost-aware objective, maximization, and
+  materiality/risk gate.
+- Eqs. (28)-(32): convex DES aggregation, specialist competence,
+  temperature-softmax weights, incumbent shrinkage, and diversity floor.
+- Eqs. (33)-(39): threshold-first/weight-second Level 1, mature-only localized
+  Level 2 with sealed DES refit, and full-universe Level 3 rebuild.
+- Eqs. (40)-(42): allowed/forbidden parameter sets and strict sealed-validation
+  promotion gate.
+- Eq. (43): immutable research memory containing window, alarms, regime,
+  candidate, promotion result, and diagnostic changes.
 - A capital-weighted portfolio alarm may batch stocks that share an affected
   feature group even when no stock triggers alone. A shared regime signature
-  is also allowed, but the current input schema does not represent regime
-  signatures and therefore does not route on them.
+  is also allowed through the optional `regime_signature` input field.
 
 ## Repository update extension
 
-A hypothetical case describes localized Level 2 fine-tuning, sealed DES
-refitting, and promotion after a cost-aware validation-objective gain while
-turnover and drawdown remain within limits. It is an illustration, not an
-update observed during holdout evaluation.
-
-The general Level 0-3 router and its numerical thresholds remain a repository
-extension: Level 1 recalibrates, Level 2 updates localized specialists, and
-Level 3 retrains broadly. Candidate parameters are constrained by `theta_allow`;
-labels, splits, costs, evaluator, benchmark, and backtest rules remain
-immutable. The repository also applies a Sharpe non-degradation guard.
+The Level 0-3 mechanism is specified by Appendix F, but this repository emits
+non-executable plans only. Candidate parameters are constrained by
+`theta_allow`; labels, splits, costs, evaluator, benchmark, and backtest rules
+remain immutable. Coefficients and tolerances not numerically fixed by the
+paper remain repository operational policy.
 
 Additional numerical values and procedures are labeled `operational_policy`
 in `config/policy_v1.json`.

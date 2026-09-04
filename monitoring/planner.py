@@ -12,10 +12,18 @@ def build_plan(report: DecisionReport, policy: dict) -> CandidatePlan:
     if report.level == 0:
         steps: tuple[CandidateStep, ...] = ()
     elif report.level == 1:
-        steps = (CandidateStep(
-            "sealed_des_recalibration", (3, 4), stocks, aspects,
-            ("des_threshold", "des_competence_window", "temperature_scaling"),
-        ),)
+        if report.action == "evaluate_level_1_threshold":
+            steps = (CandidateStep(
+                "sealed_threshold_recalibration", (3, 4), stocks, aspects,
+                ("des_threshold",),
+            ),)
+        elif report.action == "evaluate_level_1_des_weights":
+            steps = (CandidateStep(
+                "sealed_des_weight_recalibration", (3, 4), stocks, aspects,
+                ("des_competence_window", "des_weights", "temperature_scaling"),
+            ),)
+        else:
+            steps = ()
     elif report.level == 2:
         steps = (
             CandidateStep("local_specialist_fine_tuning", (1, 2), stocks, aspects,

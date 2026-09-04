@@ -1,9 +1,12 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "reference": {
+    "source_document": "paper_extention_momemtum_titles.pdf",
+    "source_document_sha256": "0bf0c4ed7caba508ef96cfc4dd8ddcd8a7f725d0ba7ab38291d3330ea663914e",
     "sections": {
       "monitoring_equations": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-      "ensemble_execution_equations": [21, 22, 23, 24, 25, 26, 27, 28, 29]
+      "update_equations": [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43],
+      "ensemble_execution_equations": [44, 45, 46, 47, 48, 49, 50, 51, 52]
     }
   },
   "market": "TW",
@@ -19,9 +22,12 @@
   "alarm_rules": {
     "minimum_alarm_count": 2,
     "adjacent_mature_windows": 2,
-    "alarm_types": ["precision", "sharpe", "information_ratio", "feature_drift", "disagreement"],
-    "risk_alarms": ["sharpe < delta_sr", "information_ratio < delta_ir"],
-    "disagreement_alarm": "disagreement > training_disagreement_q90"
+    "alarm_types": ["precision_gap", "return_gap", "risk", "disagreement", "flooding_saturation", "feature_drift"],
+    "risk_alarm": "sharpe < 0 or information_ratio < 0",
+    "feature_drift_alarm": "max_psi > 0.25",
+    "disagreement_alarm": "disagreement > training_disagreement_q90",
+    "level_1_sequence": ["threshold_recalibration", "des_weight_recalibration"],
+    "supervised_update_cutoff": "u <= t - h"
   },
   "reported_experiment_activation": false
 }

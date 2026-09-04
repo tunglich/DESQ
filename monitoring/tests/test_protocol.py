@@ -63,6 +63,13 @@ class ProtocolTest(unittest.TestCase):
             self.assertFalse(evaluation.candidate_plan.executable)
             first = evaluation.write(root / "out")
             self.assertEqual(first, evaluation.write(root / "out"))
+            memory_path = first.with_name("research_memory.json")
+            memory = json.loads(memory_path.read_text(encoding="ascii"))
+            self.assertEqual(memory["source_equation"], 43)
+            self.assertEqual(memory["promotion_status"], "not_evaluated")
+            self.assertIsNone(memory["promoted"])
+            self.assertEqual(memory["candidate_parameters"], ["des_threshold"])
+            self.assertIsNone(memory["metric_deltas"][0]["drawdown"])
 
     def test_hash_and_window_order_mismatches_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
