@@ -1,7 +1,10 @@
 from types import SimpleNamespace
+from pathlib import Path
+import tempfile
 import unittest
 
 import numpy as np
+import pandas as pd
 import torch
 
 from src.train_dqn import calc_loss, configure_seed, default_cfg
@@ -22,9 +25,32 @@ class TrainDqnTest(unittest.TestCase):
         first = backtest.evaluator_hash(10, 0.1425, 0.4425, 0.0)
         second = backtest.evaluator_hash(10, 0.1425, 0.4425, 0.0)
         changed = backtest.evaluator_hash(10, 0.1425, 0.5, 0.0)
+        changed_observations = backtest.evaluator_hash(10, 0.1425, 0.4425, 0.0, 519)
 
         self.assertEqual(first, second)
         self.assertNotEqual(first, changed)
+        self.assertNotEqual(first, changed_observations)
+
+    def test_backtest_slice_provides_exact_policy_observations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.csv"
+            output = Path(directory) / "test.csv"
+            dates = pd.bdate_range("2024-01-02", periods=540)
+            frame = pd.DataFrame({
+                "<DATE>": dates,
+                "<OPEN>": 1.0,
+                "<HIGH>": 1.0,
+                "<LOW>": 1.0,
+                "<CLOSE>": 1.0,
+            })
+            frame.to_csv(source, index=False)
+
+            sliced = backtest.slice_test_csv(
+                source, output, end=dates[-1], observations=520, bars_count=10)
+
+            self.assertEqual(len(sliced), 531)
+            self.assertEqual(len(sliced) - 10 - 1, 520)
+            self.assertEqual(sliced["<DATE>"].iloc[-1], dates[-1])
 
     def test_reference_defaults(self):
         cfg = default_cfg()

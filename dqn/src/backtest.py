@@ -29,12 +29,17 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from lib import data, environ, models  # noqa: E402
 
-TEST_START = pd.Timestamp("2024-01-02")
 TEST_END = pd.Timestamp("2026-03-30")
+TEST_START = pd.Timestamp("2024-01-02")
+TEST_OBSERVATIONS = 520
 
 
 def slice_test_csv(csv_path: Path, tmp_path: Path,
-                   start: pd.Timestamp = TEST_START, end: pd.Timestamp = TEST_END) -> pd.DataFrame:
+                   start: pd.Timestamp = TEST_START, end: pd.Timestamp = TEST_END,
+                   observations: int = TEST_OBSERVATIONS,
+                   bars_count: int = 10) -> pd.DataFrame:
+    if observations <= 0:
+        raise ValueError("observations must be positive")
     df = pd.read_csv(csv_path)
     df["<DATE>"] = pd.to_datetime(df["<DATE>"])
     ok = (df["<OPEN>"] > 0) & (df["<HIGH>"] > 0) & (df["<LOW>"] > 0) & (df["<CLOSE>"] > 0)
@@ -43,6 +48,13 @@ def slice_test_csv(csv_path: Path, tmp_path: Path,
     df = df.loc[mask].sort_values("<DATE>").reset_index(drop=True)
     if df.empty:
         raise RuntimeError(f"{csv_path.name}: no rows in test window {start.date()}~{end.date()}")
+    required_rows = observations + bars_count + 1
+    if len(df) < required_rows:
+        raise RuntimeError(
+            f"{csv_path.name}: requires {required_rows} rows for {observations} observations "
+            f"with bars_count={bars_count}, found {len(df)}"
+        )
+    df = df.tail(required_rows).reset_index(drop=True)
     out = df.copy()
     out["<DATE>"] = out["<DATE>"].dt.strftime("%Y-%m-%d")
     tmp_path.parent.mkdir(parents=True, exist_ok=True)
@@ -68,12 +80,14 @@ def sha256_file(path: Path) -> str:
 
 
 def evaluator_hash(bars_count: int, commission_buy: float,
-                   commission_sell: float, epsilon: float) -> str:
+                   commission_sell: float, epsilon: float,
+                   observations: int = TEST_OBSERVATIONS) -> str:
     payload = json.dumps({
         "bars_count": bars_count,
         "commission_buy": commission_buy,
         "commission_sell": commission_sell,
         "epsilon": epsilon,
+        "observations": observations,
         "reset_on_close": False,
         "reward_on_close": False,
         "state_1d": True,
@@ -84,7 +98,8 @@ def evaluator_hash(bars_count: int, commission_buy: float,
 def run_backtest(model_path: Path, test_csv: Path,
                  commission_buy: float, commission_sell: float,
                  bars_count: int = 10, device: str = "cpu",
-                 epsilon: float = 0.0, capture_trace: bool = False) -> dict:
+                 epsilon: float = 0.0, capture_trace: bool = False,
+                 observations: int = TEST_OBSERVATIONS) -> dict:
     prices = {"TW": data.load_relative(str(test_csv))}
     env = environ.StocksEnv(
         prices,
@@ -113,7 +128,8 @@ def run_backtest(model_path: Path, test_csv: Path,
     trace_rows: list[dict] = []
     trace_frame = pd.read_csv(test_csv) if capture_trace else None
     checkpoint_hash = sha256_file(model_path) if capture_trace else ""
-    eval_hash = evaluator_hash(bars_count, commission_buy, commission_sell, epsilon)
+    eval_hash = evaluator_hash(
+        bars_count, commission_buy, commission_sell, epsilon, observations)
     with torch.no_grad():
         while True:
             obs_v = torch.tensor(np.array([obs], dtype=np.float32)).to(device)
@@ -191,6 +207,8 @@ def main() -> int:
     ap.add_argument("--data-dir", type=Path, default=REPO_ROOT / "data")
     ap.add_argument("--tmp-dir", type=Path, default=REPO_ROOT / "saves" / "_backtest_tmp")
     ap.add_argument("--bars", type=int, default=10)
+    ap.add_argument("--observations", type=int, default=TEST_OBSERVATIONS,
+                    help="Number of executable policy observations")
     ap.add_argument("--commission-buy", type=float, default=0.1425)
     ap.add_argument("--commission-sell", type=float, default=0.4425)
     ap.add_argument("--epsilon", type=float, default=0.0)
@@ -218,7 +236,8 @@ def main() -> int:
             print(f"[skip] {sym}: missing {csv_path}")
             continue
         try:
-            df = slice_test_csv(csv_path, tmp_test)
+            df = slice_test_csv(csv_path, tmp_test, observations=args.observations,
+                                bars_count=args.bars)
         except Exception as e:  # noqa: BLE001
             print(f"[skip] {sym}: {e}")
             continue
@@ -237,7 +256,8 @@ def main() -> int:
                                commission_sell=args.commission_sell,
                                bars_count=args.bars, device=device,
                                epsilon=args.epsilon,
-                               capture_trace=args.trace_dir is not None)
+                               capture_trace=args.trace_dir is not None,
+                               observations=args.observations)
         except Exception as e:  # noqa: BLE001
             print(f"[error] {sym}: {e}")
             continue
@@ -249,6 +269,7 @@ def main() -> int:
             "test_start": df["<DATE>"].iloc[0].strftime("%Y-%m-%d"),
             "test_end": df["<DATE>"].iloc[-1].strftime("%Y-%m-%d"),
             "n_rows": n_rows,
+            "observations": res["steps"],
             "model_pct": round(res["model_pct"], 4),
             "bh_pct": round(bh_pct, 4),
             "excess_pct": round(res["model_pct"] - bh_pct, 4),

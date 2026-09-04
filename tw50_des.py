@@ -117,6 +117,7 @@ DEFAULT_SHORT = 3
 DEFAULT_S2L = 3
 DEFAULT_L2S = 3
 DEFAULT_THRESHOLD = 0.5
+DEFAULT_TEST_OBSERVATIONS = 520
 
 # Trading model constants.
 BUY_FEE = 0.001425      # brokerage fee
@@ -440,7 +441,8 @@ def plot_backtest(stock_id: str, equity: pd.DataFrame, out_path: Path) -> None:
 def run_one(stock_id: str, *, threshold: float, long: int, short: int,
              s2l: int, l2s: int, force: bool,
              strict_oof: bool = False,
-             seed: int = DEFAULT_SEED) -> dict:
+             seed: int = DEFAULT_SEED,
+             test_observations: int = DEFAULT_TEST_OBSERVATIONS) -> dict:
     print(f'\n=== DES: {stock_id} ===')
     X_all, source_modes = load_aspect_predictions(stock_id)
     y_all = load_labels(stock_id, X_all.index)
@@ -481,6 +483,8 @@ def run_one(stock_id: str, *, threshold: float, long: int, short: int,
     prob_rf.to_csv(DES_PRED_DIR / f'RF_{stock_id}.csv', header=True)
 
     # AGG_DES is the aggregated DES probability. No CUSUM blending applied.
+    if test_observations <= 0:
+        raise ValueError('test_observations must be positive')
     prob_des_test = prob_des.loc[TEST_START:TEST_END]
 
     prices = load_prices(stock_id)
@@ -490,11 +494,20 @@ def run_one(stock_id: str, *, threshold: float, long: int, short: int,
         return {
             'stock_id': stock_id,
             'has_prices': False,
-            'n_test_days': int(len(prob_des_test)),
+            'n_test_days': min(int(len(prob_des_test)), test_observations),
             'paths': paths,
         }
 
     price_test = prices.loc[TEST_START:TEST_END]
+    common_test_index = prob_des_test.index.intersection(price_test.index)
+    if len(common_test_index) < test_observations:
+        raise RuntimeError(
+            f'{stock_id}: requires {test_observations} common test observations, '
+            f'found {len(common_test_index)}'
+        )
+    common_test_index = common_test_index[-test_observations:]
+    prob_des_test = prob_des_test.loc[common_test_index]
+    price_test = price_test.loc[common_test_index]
     bt = backtest(stock_id, prob_des_test, price_test,
                   threshold=threshold, long=long, short=short, s2l=s2l, l2s=l2s)
     equity_path = DES_BT_DIR / f'{stock_id}_equity.csv'
@@ -539,6 +552,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "source='oof' on the DES-train slice (leakage guard).")
     p.add_argument('--seed', type=int, default=DEFAULT_SEED,
                    help='Global RNG seed; also threaded into RandomForest random_state.')
+    p.add_argument('--test-observations', type=int, default=DEFAULT_TEST_OBSERVATIONS,
+                   help='Use the latest N common daily test observations.')
     p.add_argument('--no-show', action='store_true',
                    help='(kept for CLI compat; plots are always saved to disk without display)')
     args = p.parse_args(argv)
@@ -558,7 +573,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                           s2l=args.s2l, l2s=args.l2s,
                           force=args.force,
                           strict_oof=args.strict_oof,
-                          seed=args.seed)
+                          seed=args.seed,
+                          test_observations=args.test_observations)
             rows.append(row)
         except Exception as exc:  # noqa: BLE001
             print(f'[FAIL] {sid}: {exc}')

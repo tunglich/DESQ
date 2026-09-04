@@ -66,9 +66,9 @@ $env:DESQ_SEED = '42'
   README turns red the moment this happens.
 - `verify_public_prices.py` FAIL — the shipped `prices/*.csv` was edited
   after the manifest was recorded. Falsifies the OHLCV inputs directly.
-- Stage 3 `total_ret_stock` ≠ 2.002 — the test window shifted; a data
-  pipeline change slipped in. `n_test_days ≠ 540` has the same meaning.
-- Stage 3 `total_ret_model` outside `[1.635, 1.735]` for seed=42 — either
+- Stage 3 `total_ret_stock` ≠ 1.764 — the test window shifted; a data
+  pipeline change slipped in. `n_test_days ≠ 520` has the same meaning.
+- Stage 3 `total_ret_model` outside `[0.301, 0.401]` for seed=42 — either
   the seed threading in Stage 1/2 broke, or a stochastic layer added
   new randomness. Reproduce with `make seed-sweep` to confirm.
 

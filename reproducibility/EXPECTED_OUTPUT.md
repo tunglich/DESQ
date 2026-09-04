@@ -63,9 +63,9 @@ Expected `artifacts/des/backtest/summary.csv` (single row for 2330):
 | --- | --- | --- |
 | `stock_id`         | `2330` | exact |
 | `has_prices`       | `True` | exact |
-| `n_test_days`      | `540`  | exact (test window 2024-01-01..2026-03-31 minus warmup) |
-| `total_ret_stock`  | `2.002 ± 1e-3` | exact — buy-and-hold, deterministic |
-| `total_ret_model`  | `1.685 ± 0.05` | repeated seed-42 clean-clone result; tolerance permits backend numeric drift |
+| `n_test_days`      | `520`  | exact (latest common test observations ending 2026-03-31) |
+| `total_ret_stock`  | `1.764 ± 1e-3` | exact — buy-and-hold, deterministic |
+| `total_ret_model`  | `0.351 ± 0.05` | repeated seed-42 result; tolerance permits backend numeric drift |
 | `acc_buy`          | `10 ± 3` | count of correct buys |
 | `acc_sell`         | `9 ± 3`  | count of correct sells |
 
@@ -89,12 +89,12 @@ Expected `artifacts/seed_sweep/aggregate.csv` central tendency
 
 | metric | mean | std |
 | --- | --- | --- |
-| `n_test_days`        | 540    | 0     (must be 0) |
-| `total_ret_stock`    | 2.002  | 0     (must be 0) |
-| `total_ret_model`    | 0.31   | 0.14  |
-| `excess_ret`         | -1.69  | 0.14  |
-| `acc_buy`            | 10.3   | 1.5   |
-| `acc_sell`           | 9.3    | 1.5   |
+| `n_test_days`        | 520    | 0     (must be 0) |
+| `total_ret_stock`    | 1.764  | 0     (must be 0) |
+| `total_ret_model`    | 0.246  | 0.14  |
+| `excess_ret`         | -1.518 | 0.14  |
+| `acc_buy`            | 9.7    | 2.1   |
+| `acc_sell`           | 9.0    | 1.7   |
 
 Non-zero `n_test_days_std` or `total_ret_stock_std` proves the sweep script
 mixed test windows — this is a bug, not a randomness question.

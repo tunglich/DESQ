@@ -17,21 +17,20 @@ Outputs are written to `tables/` as CSV, Markdown, and LaTeX. Validation reports
 | 5 | Horizon sensitivity | `reported_only`: available local runs are not provenance-matched to the three horizon results |
 | 6 | Cross-market statistics | Peer and benchmark rows reproduce from shipped NAV; DESQ rows lack NAV matched to the listed returns |
 | 7 | Nine-seed/statistical reliability | `reported_only` except benchmark returns; no complete seed-to-result manifest links the available runs to these statistics |
-| 8 | Regime performance | The regime set, day partition, and excess-return arithmetic are audited; available local NAV uses a different observation count and return |
+| 8 | Regime performance | `mixed`: the 520-observation numerical curve is shipped; checkpoints remain external |
 | A1 (compatibility filename: 9) | 78-feature taxonomy | Reproduced from all 250 feature CSV headers; six Fundamental files contain an extra `CMDTY` field recorded in `table9_schema_drift.csv` |
 | C1 (compatibility filename: 10) | Top-50 flooding ablations | Reference arithmetic reproduces; raw DDQN/flooding NAV is not shipped. Reference ticker `2324.TT` conflicts with repo constituent `3231` |
 
 `reported_only` means the artifact is a deterministic, machine-readable
 reference transcription, not an empirical rerun. A development archive does
 contain DDQN checkpoints and action paths, but existence alone is insufficient:
-the available Taiwan runs produce different returns and use 533 observations,
-whereas the reference rows above use different values and a 540-observation
-regime contract. These rows must not be promoted to `reproduced` until raw
-predictions, NAV series, seeds, configuration, and checkpoint hashes are linked
-to each exact row.
+the legacy reference rows use different evaluation contracts. Table 8 now uses
+the shipped 520-observation DRL curve, while the other `reported_only` rows must
+not be promoted to `reproduced` until raw predictions, NAV series, seeds,
+configuration, and checkpoint hashes are linked to each exact row.
 
 ## Validation conventions
 
 - Table 6 uses 562 common-date observations and an annual 3M T-bill rate of 4.42%. Core NAV metrics reproduce within 0.02. Several reported Sortino values do not follow the identifiable shipped-NAV formula and remain visible as failed audit rows.
-- Table 8 treats each correction as peak-to-trough return intervals: 16/31 NAV points correspond to 15/30 daily return intervals. Pooled up-trend days are the remaining 495 of 540 observations.
+- Table 8 treats each correction as peak-to-trough return intervals: 16/31 NAV points correspond to 15/30 daily return intervals. Pooled up-trend days are the remaining 475 of 520 observations.
 - Appendix C Table C1 transaction cost is checked as `round_trips * 0.585` percentage points with half-up rounding; all return/excess identities are checked to 0.011 percentage points.

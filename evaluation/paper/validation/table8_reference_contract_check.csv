@@ -1,5 +1,5 @@
 regime,reference_days,excess_arithmetic_ok,partition_days_ok
-Full window,540,True,True
-Up-trend (pooled),495,True,True
+Full window,520,True,True
+Up-trend (pooled),475,True,True
 Corr. 1,15,True,True
 Corr. 2,30,True,True

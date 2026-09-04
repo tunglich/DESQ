@@ -213,8 +213,8 @@ jobs:
           rm = float(row.iloc[0]['total_ret_model'])
           print(f'2330: n_test_days={n}, total_ret_stock={rs:.4f}, total_ret_model={rm:.4f}')
           # Exact data invariants mirror reproducibility/EXPECTED_OUTPUT.md sec 2.
-          assert n == 540, f'expected n_test_days=540, got {n}'
-          assert abs(rs - 2.002) < 0.05, f'expected total_ret_stock~=2.002, got {rs}'
+          assert n == 520, f'expected n_test_days=520, got {n}'
+          assert abs(rs - 1.764) < 0.05, f'expected total_ret_stock~=1.764, got {rs}'
           # Keep the model bound portable across CI backends and loose dependency resolution.
           assert -1.0 < rm < 3.0, f'total_ret_model={rm} outside sanity range'
           print('SUMMARY OK')

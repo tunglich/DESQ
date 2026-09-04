@@ -4,7 +4,7 @@ Evidence status is row-specific; `reported_only` is a reference transcription.
 
 | regime | start_date | end_date | days | desq_return_pct | benchmark_return_pct | excess_pp | evidence_status | source_reference |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Full window | 2024-01-02 | 2026-03-31 | 540 | 129.0 | 88.07 | 40.93 | reported_only | Reference snapshot 8 |
-| Up-trend (pooled) |  |  | 495 | 139.8 | 213.4 | -73.6 | reported_only | Reference snapshot 8 |
-| Corr. 1 | 2024-07-11 | 2024-08-05 | 15 | -1.3 | -18.3 | 17.0 | reported_only | Reference snapshot 8 |
-| Corr. 2 | 2025-02-21 | 2025-04-09 | 30 | -3.0 | -26.5 | 23.5 | reported_only | Reference snapshot 8 |
+| Full window | 2024-01-19 | 2026-03-31 | 520 | 167.98 | 94.76 | 73.22 | mixed | DRL 520-observation curve; checkpoints external |
+| Up-trend (pooled) |  |  | 475 | 153.98 | 224.55 | -70.57 | mixed | DRL 520-observation curve; checkpoints external |
+| Corr. 1 | 2024-07-11 | 2024-08-05 | 15 | 7.64 | -18.31 | 25.95 | mixed | DRL 520-observation curve; checkpoints external |
+| Corr. 2 | 2025-02-21 | 2025-04-09 | 30 | 6.36 | -26.54 | 32.90 | mixed | DRL 520-observation curve; checkpoints external |

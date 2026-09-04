@@ -50,7 +50,7 @@ class EvaluationTablesTest(unittest.TestCase):
 
 	def test_table8_reference_contract(self):
 		rows = read_csv(EVALUATION_DIR / "validation/table8_reference_contract_check.csv")
-		self.assertEqual([int(row["reference_days"]) for row in rows], [540, 495, 15, 30])
+		self.assertEqual([int(row["reference_days"]) for row in rows], [520, 475, 15, 30])
 		self.assertTrue(all(row["excess_arithmetic_ok"] == "True" for row in rows))
 		self.assertTrue(all(row["partition_days_ok"] == "True" for row in rows))
 
