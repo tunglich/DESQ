@@ -17,17 +17,19 @@ Outputs are written to `tables/` as CSV, Markdown, and LaTeX. Validation reports
 | 5 | Horizon sensitivity | `reported_only`: available local runs are not provenance-matched to the three horizon results |
 | 6 | Cross-market statistics | Peer and benchmark rows reproduce from shipped NAV; DESQ rows lack NAV matched to the listed returns |
 | 7 | Nine-seed/statistical reliability | `reported_only` except benchmark returns; no complete seed-to-result manifest links the available runs to these statistics |
-| 8 | Regime performance | `mixed`: the 520-observation numerical curve is shipped; checkpoints remain external |
+| 8 | Regime performance | `reported_only`: the day partition and excess-return arithmetic are audited, but no provenance-matched NAV is shipped |
 | A1 (compatibility filename: 9) | 78-feature taxonomy | Reproduced from all 250 feature CSV headers; six Fundamental files contain an extra `CMDTY` field recorded in `table9_schema_drift.csv` |
 | C1 (compatibility filename: 10) | Top-50 flooding ablations | Reference arithmetic reproduces; raw DDQN/flooding NAV is not shipped. Reference ticker `2324.TT` conflicts with repo constituent `3231` |
 
 `reported_only` means the artifact is a deterministic, machine-readable
 reference transcription, not an empirical rerun. A development archive does
 contain DDQN checkpoints and action paths, but existence alone is insufficient:
-the legacy reference rows use different evaluation contracts. Table 8 now uses
-the shipped 520-observation DRL curve, while the other `reported_only` rows must
-not be promoted to `reproduced` until raw predictions, NAV series, seeds,
-configuration, and checkpoint hashes are linked to each exact row.
+the available all_75 Taiwan runs produce higher returns and do not reproduce the
+DESQ flooding-ablation rows. All `reported_only` rows, including the standardized
+520-observation Table 8 contract, must not be promoted to `reproduced` until raw
+predictions, NAV series, seeds, configuration, and checkpoint hashes are linked
+to each exact row. Returns are never rescaled or checkpoint-selected to force a
+match with a reference endpoint.
 
 ## Validation conventions
 

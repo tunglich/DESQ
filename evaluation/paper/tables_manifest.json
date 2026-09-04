@@ -60,11 +60,11 @@
     },
     "8": {
       "evidence_status_counts": {
-        "mixed": 4
+        "reported_only": 4
       },
       "rows": 4,
       "source": "evaluation/paper/sources/table8_regime_reported.csv",
-      "source_sha256": "f74f930e58aa52d00453d5a619d2a4f93176180f76783931714e08da971b2dcc",
+      "source_sha256": "cfcfb5230017d6ebecca3e392fa306917633ca285deba1c3f8fc87a60c9f77d3",
       "title": "Regime-conditional performance"
     },
     "9": {

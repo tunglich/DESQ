@@ -41,18 +41,17 @@ schemas, evaluation commands, and the deployment safety boundary.
 
 ## Experimental results
 
-The current DRL evaluation uses exactly 520 common daily return observations
-per curve. The shipped CSV curves reproduce the displayed endpoints; model
-checkpoints remain in the development archive. See
-[evaluation/drl_520/README.md](evaluation/drl_520/README.md) for the contract
-and [evaluation/paper/README.md](evaluation/paper/README.md) for the remaining
-reference-table evidence status.
+The evaluation bundle records the following 520-observation reference results.
+Their current evidence status is `reported_only`: available DRL checkpoints
+belong to a different all_75 experiment and produce higher returns, so they are
+not used to manufacture matching curves. See
+[evaluation/paper/README.md](evaluation/paper/README.md).
 
-| Evaluation result | DRL all_75 return | Benchmark return | Numerical source |
+| Evaluation result | DESQ DDQN return | Benchmark return | Reference source |
 | --- | ---: | ---: | --- |
-| TSMC (2330.TT) | **+232.93%** | +176.21% | [520-observation curve](evaluation/drl_520/2330_timeseries_75_65_60_55_vs_BH.csv) |
-| MediaTek (2454.TT) | **+269.17%** | +65.76% | [520-observation curve](evaluation/drl_520/2454_timeseries_75_65_60_55_vs_BH.csv) |
-| TWSE Top-50 portfolio | **+167.98%** | +94.76% | [520-observation curve](evaluation/drl_520/portfolio_market_timeseries_market_75_65_60_55_vs_TWA02.csv) |
+| TSMC (2330.TT) | **+202.50%** | +201.82% | [Per-stock ablation results](evaluation/paper/tables/table10_top50_flooding.csv) |
+| MediaTek (2454.TT) | **+101.20%** | +62.69% | [Per-stock ablation results](evaluation/paper/tables/table10_top50_flooding.csv) |
+| TWSE Top-50 portfolio | **+129.0%** | +88.07% | [evaluation/paper/tables/table8_regime.csv](evaluation/paper/tables/table8_regime.csv) |
 
 ### Evaluation result bundle
 
