@@ -41,10 +41,11 @@ schemas, evaluation commands, and the deployment safety boundary.
 
 ## Experimental results
 
-The evaluation bundle records the following sealed-holdout results. Their
-current evidence status is
-`reported_only` because the corresponding DDQN checkpoints and action paths
-are not shipped. See [evaluation/paper/README.md](evaluation/paper/README.md).
+The evaluation bundle records the following reference results. Their current
+evidence status is `reported_only`. Candidate DDQN checkpoints and action paths
+exist in the development archive, but their evaluation windows and returns do
+not match these rows one-to-one, so they are not presented as reproductions.
+See [evaluation/paper/README.md](evaluation/paper/README.md).
 
 | Evaluation result | DESQ DDQN return | Benchmark return | Reference source |
 | --- | ---: | ---: | --- |
