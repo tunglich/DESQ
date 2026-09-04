@@ -15,13 +15,13 @@ windows (4:1 train:validation ratio) with a 20-day label horizon and a further
 
 ## End-to-end training pipeline
 
-The seven stages below describe the end-to-end supervised training flow,
-with repository script annotations added in blue. The `next aspect` loop
-repeats stages 2–5 for each of the five feature aspects; after all five aspects
-are trained, stages 6–7 run once. The separate Signal-Conditioned
-Double DQN execution layer is documented under Stage 4 below.
+The five stages below follow the complete architecture in revised-paper
+Figure 4: causal data processing, five feature-group specialists trained with
+AutoML and Dynamic Flooding, DES signal combination, and signal-conditioned
+DDQN execution. The dashed maintenance path represents Appendix F and was
+disabled during the reported holdout evaluation.
 
-![End-to-end DESQ training and back-test pipeline](docs/training_pipeline.png)
+![Complete DESQ architecture from revised-paper Figure 4](docs/training_pipeline.png)
 
 Regenerate the figure with `python docs/_render_training_pipeline.py`.
 
