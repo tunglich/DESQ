@@ -87,13 +87,13 @@ TEST_START = '2024-01-01'
 TEST_END = '2026-03-31'
 
 # Feature aspects (sentiment intentionally excluded).
-# Paper-to-code aspect name mapping (see README "Feature aspects" table):
+# Feature aspect name mapping (see README "Feature aspects" table):
 #   Fundamental -> 'fundamental'   Float       -> 'trade'
 #   Price-Trend -> 'tech_trend'    Momentum    -> 'moment'
 #   Macro       -> 'macro'
 ASPECTS: tuple[str, ...] = ('fundamental', 'trade', 'tech_trend', 'moment', 'macro')
 
-# Paper walk-forward: 20-day label isolation followed by a 30-day purge.
+# Reference walk-forward: 20-day label isolation followed by a 30-day purge.
 WF_N_SPLITS = int(os.getenv('WF_N_SPLITS', '5'))
 WF_VAL_RATIO = float(os.getenv('WF_VAL_RATIO', '0.20'))
 LABEL_HORIZON = 20

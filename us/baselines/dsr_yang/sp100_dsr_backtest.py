@@ -1,7 +1,7 @@
-"""Phase B — Reproduce Yang, Liu, Wu (2018 IEEE) — "A Practical Machine Learning
+"""Phase B — Reproduce Yang, Liu, Wu (2018) — "A Practical Machine Learning
 Approach for Dynamic Stock Recommendation" — on our S&P 100 universe.
 
-Methodology (paper-faithful in spirit; feature set adapted to what we already
+Methodology follows the reference approach; the feature set is adapted to the
 compute from Alpha Vantage):
 
     1. Quarterly panel (tic, quarter_start) of fundamental features + target
@@ -25,7 +25,7 @@ Outputs (under baselines/dsr_yang/backtest_2024_20260330/):
     selections.csv             ......  per-quarter top-20 tickers per model pick
     equity_ew.csv / _mvo.csv / _minvar.csv .... daily portfolio equity
     metrics.csv                ......  return / sharpe / mdd per method
-    paper_vs_des.png           ......  DES vs 3 Yang variants vs ^OEX
+    baseline_vs_des.png        ......  DES vs 3 Yang variants vs ^OEX
     summary.txt                ......  human-readable summary
 """
 from __future__ import annotations
@@ -66,7 +66,7 @@ TRADE_START = pd.Timestamp("2024-01-02")
 TRADE_END   = pd.Timestamp("2026-03-30")
 INITIAL_CAPITAL = 1_000_000
 
-# Rolling-window params (in quarters, matching paper)
+# Rolling-window parameters in quarters.
 TRAIN_Q = 16   # 4 years training
 TEST_Q  = 4    # 1 year validation used for model selection
 
@@ -597,12 +597,12 @@ def main() -> int:
     plt.xlabel("Date"); plt.ylabel("Portfolio value ($, rebased $1M)")
     plt.legend(loc="upper left", fontsize=10); plt.grid(True, alpha=0.3)
     plt.xticks(rotation=30); plt.tight_layout()
-    plt.savefig(OUT_DIR / "paper_vs_des.png", dpi=150); plt.close()
-    print(f"[OK] wrote {OUT_DIR / 'paper_vs_des.png'}")
+    plt.savefig(OUT_DIR / "baseline_vs_des.png", dpi=150); plt.close()
+    print(f"[OK] wrote {OUT_DIR / 'baseline_vs_des.png'}")
 
     # Summary
     with open(OUT_DIR / "summary.txt", "w") as f:
-        f.write("Yang 2018 IEEE DSR — S&P 100 reproduction\n")
+        f.write("Yang 2018 DSR — S&P 100 reproduction\n")
         f.write(f"Trade period: {TRADE_START.date()} ~ {TRADE_END.date()}\n")
         f.write(f"Universe: {SP100!r} ({len(SP100)} candidates)\n")
         f.write(f"Kept in panel: {panel['tic'].nunique()} tickers\n")

@@ -134,7 +134,7 @@ class EpsilonTracker:
 def distr_projection(next_distr, rewards, dones, Vmin, Vmax, n_atoms, gamma):
     """
     Perform distribution projection aka Catergorical Algorithm from the
-    "A Distributional Perspective on RL" paper
+    "A Distributional Perspective on RL" reference
     """
     batch_size = len(rewards)
     proj_distr = np.zeros((batch_size, n_atoms), dtype=np.float32)

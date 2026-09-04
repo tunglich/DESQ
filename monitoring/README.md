@@ -1,22 +1,21 @@
 # Self-improving monitoring protocol
 
-This package implements the post-deployment monitoring contract in Appendix F,
-Eqs. (10)-(20), of the authoritative 28-page paper. Monitoring was not active
-during the reported experiments, so these outputs do not reproduce or alter
-the paper's performance tables.
+This package implements the reference post-deployment monitoring equations.
+Monitoring was not active during the reported experiments, so these outputs do
+not reproduce or alter the recorded performance results.
 
 The implementation is fail-closed and read-only:
 
 - metric functions implement Eqs. (10)-(20);
 - two mature, non-overlapping windows are required for an update trigger;
-- inputs must match the active paper-contract and operational-policy hashes;
+- inputs must match the active reference-contract and operational-policy hashes;
 - decisions and plans are content-addressed immutable JSON;
 - every candidate plan has `dry_run=true` and `executable=false`.
 
-## Paper contract
+## Reference contract
 
 Monitoring uses a 60-trading-day lookback and a 20-day label horizon. Therefore
-each paper window contains 40 matured anchors: `L - h = 60 - 20`. The paper's
+each evaluation window contains 40 matured anchors: `L - h = 60 - 20`. The
 explicit trigger contains five alarm types:
 
 1. validation-to-live precision degradation;
@@ -28,9 +27,9 @@ explicit trigger contains five alarm types:
 An update is queued only when at least two alarm types fire in both the current
 and immediately preceding mature windows. Return shortfall and Dynamic-Flooding
 upper-bound frequency remain recorded diagnostics, but they are not members of
-the paper's explicit five-alarm trigger set.
+the explicit five-alarm trigger set.
 
-Appendix F also gives a hypothetical localized-degradation example: Level 2
+A hypothetical localized-degradation example uses Level 2 to
 fine-tunes only affected stock-group specialists on matured observations,
 refits DES on sealed validation data, and promotes only when a cost-aware
 validation objective improves without violating turnover or drawdown limits.
@@ -43,10 +42,10 @@ additional promotion guards in this package are repository operational policy.
 | --- | --- |
 | `metrics.py` | Pure implementations of Eqs. (10)-(20) |
 | `adapters.py` | Read-only Stage-2 prediction adapter with label maturity filtering |
-| `decision.py` | Five paper alarms, adjacent-window trigger, and policy routing |
+| `decision.py` | Five reference alarms, adjacent-window trigger, and policy routing |
 | `protocol.py` | Validated diagnostic batches and immutable evaluation artifacts |
 | `planner.py` | Non-executing Level 0-3 candidate plans |
-| `config/paper_contract.json` | Paper-defined invariants and trigger structure |
+| `config/reference_contract.json` | Reference invariants and trigger structure |
 | `config/policy_v1.json` | Repository-defined thresholds and update controls |
 
 No extra package is required beyond the repository environment.

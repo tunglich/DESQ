@@ -1,15 +1,15 @@
 # Table 7. Uncertainty and statistical reliability
 
-Evidence status is row-specific; `reported_only` is a PDF transcription.
+Evidence status is row-specific; `reported_only` is a reference transcription.
 
 | metric | top50 | dow30 | sp100 | nasdaq | evidence_status | source_reference |
 | --- | --- | --- | --- | --- | --- | --- |
-| Median return (%) | 129.0 | 67.4 | 82.8 | 83.5 | reported_only | PDF p19 Table 7 |
-| Nine-seed range (%) | 117.5-140.2 | 60.6-75.5 | 74.1-91.2 | 75.0-92.4 | reported_only | PDF p19 Table 7 |
-| Benchmark return (%) | 88.07 | 19.9 | 39.0 | 38.7 | mixed | PDF p19 Table 7; shipped benchmark NAV |
-| Sharpe (annualised) | 1.24 | 1.80 | 2.13 | 1.92 | reported_only | PDF p19 Table 7 |
-| Bootstrap 95% CI | [0.67, 1.79] | [0.90, 2.67] | [1.27, 2.93] | [1.15, 2.78] | reported_only | PDF p19 Table 7 |
-| DM p: DESQ vs. DRL |  | <0.01 | <0.01 | <0.01 | reported_only | PDF p19 Table 7 |
-| DM p: DESQ vs. DSR |  | <0.01 | <0.01 | <0.01 | reported_only | PDF p19 Table 7 |
-| DM p: DESQ vs. MACE |  | 0.38 | <0.01 | <0.01 | reported_only | PDF p19 Table 7 |
-| Hansen SPA p |  | 0.02 | <0.02 | <0.02 | reported_only | PDF p19 Table 7 |
+| Median return (%) | 129.0 | 67.4 | 82.8 | 83.5 | reported_only | Reference snapshot 7 |
+| Nine-seed range (%) | 117.5-140.2 | 60.6-75.5 | 74.1-91.2 | 75.0-92.4 | reported_only | Reference snapshot 7 |
+| Benchmark return (%) | 88.07 | 19.9 | 39.0 | 38.7 | mixed | Reference snapshot 7; shipped benchmark NAV |
+| Sharpe (annualised) | 1.24 | 1.80 | 2.13 | 1.92 | reported_only | Reference snapshot 7 |
+| Bootstrap 95% CI | [0.67, 1.79] | [0.90, 2.67] | [1.27, 2.93] | [1.15, 2.78] | reported_only | Reference snapshot 7 |
+| DM p: DESQ vs. DRL |  | <0.01 | <0.01 | <0.01 | reported_only | Reference snapshot 7 |
+| DM p: DESQ vs. DSR |  | <0.01 | <0.01 | <0.01 | reported_only | Reference snapshot 7 |
+| DM p: DESQ vs. MACE |  | 0.38 | <0.01 | <0.01 | reported_only | Reference snapshot 7 |
+| Hansen SPA p |  | 0.02 | <0.02 | <0.02 | reported_only | Reference snapshot 7 |

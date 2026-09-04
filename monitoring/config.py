@@ -1,4 +1,4 @@
-"""Load and hash the immutable paper contract and operational policy."""
+"""Load and hash the immutable reference contract and operational policy."""
 from __future__ import annotations
 
 import json
@@ -20,7 +20,7 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def load_contract(path: Path | None = None) -> tuple[dict[str, Any], str]:
-    value = load_json(path or CONFIG_DIR / "paper_contract.json")
+    value = load_json(path or CONFIG_DIR / "reference_contract.json")
     if value.get("reported_experiment_activation") is not False:
         raise ValueError("monitoring must remain outside the reported experiments")
     return value, content_hash(value)

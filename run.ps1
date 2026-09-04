@@ -3,7 +3,7 @@
     Windows-native task runner for the TW-50 DESQ pipeline.
 
 .DESCRIPTION
-    Mirrors the targets defined in Makefile for reviewers on Windows who do
+    Mirrors the targets defined in Makefile for Windows users who do
     not have GNU make. Assumes the `finlab` conda env is already active.
 
 .PARAMETER Target
@@ -98,13 +98,13 @@ TW-50 DESQ run.ps1 -- Windows PowerShell task runner
     stage4-data       build Double-DQN input from Stage 3 output
     stage4-train      train all five DQN walk-forward folds
     stage4-backtest   evaluate the promoted Stage 4 checkpoint
-    monitor-smoke     synthetic Appendix-F Level 0-3 smoke
+    monitor-smoke     synthetic Level 0-3 monitoring smoke
     monitor-stage2    immutable Stage 2 snapshot for -Stock
 
-  Paper artifacts (no training required):
-        figures           regenerate revised-paper Figure B1
-    tables            regenerate and audit revised-paper Tables 3-10
-    tables-check      run revised-paper table regression tests
+    Evaluation artifacts (no training required):
+        figures           regenerate the training-flow diagram
+        tables            regenerate and audit evaluation tables
+        tables-check      run evaluation-table regression tests
 
   Cleanup:
     clean-smoke       remove smoke-test artifacts for -Stock

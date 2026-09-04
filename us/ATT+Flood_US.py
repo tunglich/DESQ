@@ -340,7 +340,7 @@ class SinusoidalPositionalEncoding(layers.Layer):
 # 5) Use time-series cross-validated metrics as the trial objective.
 # ==============================================================
 
-# Time-series cross-validation uses the paper's 50-anchor effective gap by default.
+# Time-series cross-validation uses the reference 50-anchor effective gap by default.
 class BlockingTimeSeriesSplit:
     """Time-series splitter (Blocking CV).
 

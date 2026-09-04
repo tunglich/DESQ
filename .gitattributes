@@ -5,5 +5,5 @@ us/baselines/run_all_baselines.sh text eol=lf
 
 # Shipped data CSVs are hashed (reproducibility/MANIFEST.sha256). Pin to LF so
 # that Windows contributors with core.autocrlf=true do not silently rewrite them
-# to CRLF, which would break the CI manifest check and reviewer verification.
+# to CRLF, which would break the CI manifest and verification checks.
 *.csv text eol=lf

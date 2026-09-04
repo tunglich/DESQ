@@ -1,12 +1,6 @@
-# Revised-paper Tables 3-8, A1, and C1
+# Evaluation tables and audits
 
-This bundle targets the authoritative 28-page PDF `Paper2_Highlighted_PDF_consistency_fixed.pdf` with SHA-256:
-
-```text
-a92e3ea2148d6bbe0d802976b5e6b46e7f879a270fe67c885215d977ec9dfd14
-```
-
-Generate and audit every table with:
+Generate and audit every reference table with:
 
 ```bash
 python evaluation/paper/generate_tables.py
@@ -21,13 +15,13 @@ Outputs are written to `tables/` as CSV, Markdown, and LaTeX. Validation reports
 | 3 | Walk-forward precision | `reported_only`: corresponding fold predictions are not shipped |
 | 4 | Cumulative module ablation | `reported_only`: six DDQN experiment bundles are not shipped |
 | 5 | Horizon sensitivity | `reported_only`: horizon-specific retraining bundles are not shipped |
-| 6 | Cross-market statistics | Peer and benchmark rows reproduce from their shipped NAV; current-paper DESQ rows are `reported_only` because matching DDQN NAV is not shipped |
+| 6 | Cross-market statistics | Peer and benchmark rows reproduce from their shipped NAV; DESQ rows are `reported_only` because matching DDQN NAV is not shipped |
 | 7 | Nine-seed/statistical reliability | `reported_only` except benchmark returns; seed returns, bootstrap draws, DM inputs, and SPA inputs are not shipped |
-| 8 | Regime performance | Current-paper regime set, day partition, and excess-return arithmetic are audited; matching DDQN NAV is not shipped |
+| 8 | Regime performance | The regime set, day partition, and excess-return arithmetic are audited; matching DDQN NAV is not shipped |
 | A1 (compatibility filename: 9) | 78-feature taxonomy | Reproduced from all 250 feature CSV headers; six Fundamental files contain an extra `CMDTY` field recorded in `table9_schema_drift.csv` |
-| C1 (compatibility filename: 10) | Top-50 flooding ablations | PDF arithmetic reproduces; raw DDQN/flooding NAV is not shipped. PDF ticker `2324.TT` conflicts with repo constituent `3231` |
+| C1 (compatibility filename: 10) | Top-50 flooding ablations | Reference arithmetic reproduces; raw DDQN/flooding NAV is not shipped. Reference ticker `2324.TT` conflicts with repo constituent `3231` |
 
-`reported_only` means the artifact is a deterministic, machine-readable transcription of the paper, not an empirical rerun. These rows must not be promoted to `reproduced` until their raw predictions, NAV series, seeds, configuration, and checkpoint hashes are present.
+`reported_only` means the artifact is a deterministic, machine-readable reference transcription, not an empirical rerun. These rows must not be promoted to `reproduced` until their raw predictions, NAV series, seeds, configuration, and checkpoint hashes are present.
 
 ## Validation conventions
 

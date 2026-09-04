@@ -339,7 +339,7 @@ def main(universe_key: str) -> int:
     plt.savefig(out_dir / "baseline_vs_ac.png", dpi=140); plt.close()
     print(f"[OK] wrote {out_dir / 'baseline_vs_ac.png'}")
 
-    # Chart 2: paper vs DES (use best-AC agent + PPO baseline)
+    # Chart 2: baseline vs DES (use best-AC agent + PPO baseline)
     fig, ax = plt.subplots(figsize=(14, 8))
     best_ac = max(
         ((k, r) for k, r in results.items() if k[1] == "ac"),
@@ -367,14 +367,14 @@ def main(universe_key: str) -> int:
         ax.plot(b2.index, b2.values, label=U["index_ticker"],
                 linewidth=1.4, linestyle="-.", color="black")
     ax.axhline(INITIAL_AMOUNT, color="grey", linewidth=0.7, linestyle="--")
-    ax.set_title(f"{U['label']} — MACE Paper vs DES (Ours)  "
+    ax.set_title(f"{U['label']} — MACE Baseline vs DES (Ours)  "
                  f"{TRADE_START.date()} ~ {TRADE_END.date()}")
     ax.set_xlabel("Date"); ax.set_ylabel("Portfolio value ($)")
     ax.legend(loc="upper left", fontsize=10)
     ax.grid(True, alpha=0.3)
     plt.xticks(rotation=30); plt.tight_layout()
-    plt.savefig(out_dir / "paper_vs_des.png", dpi=140); plt.close()
-    print(f"[OK] wrote {out_dir / 'paper_vs_des.png'}")
+    plt.savefig(out_dir / "baseline_vs_des.png", dpi=140); plt.close()
+    print(f"[OK] wrote {out_dir / 'baseline_vs_des.png'}")
 
     with open(out_dir / "summary.txt", "w") as f:
         f.write(f"Abbade 2026 MACE — {U['label']} reproduction\n")

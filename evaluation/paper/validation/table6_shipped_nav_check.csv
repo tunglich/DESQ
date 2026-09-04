@@ -1,4 +1,4 @@
-universe,method,metric,paper_value,recomputed_value,difference,pass_0_02
+universe,method,metric,reference_value,recomputed_value,difference,pass_0_02
 Dow 30,DRL Ensemble,total_return_pct,28.57,28.57191,0.00191,True
 Dow 30,DRL Ensemble,excess_return_pct,8.68,8.683023,0.003023,True
 Dow 30,DRL Ensemble,annual_return_pct,11.93,11.92857,-0.00143,True

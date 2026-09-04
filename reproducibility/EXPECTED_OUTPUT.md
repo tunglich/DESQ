@@ -1,6 +1,6 @@
 # Expected output — smoke reproducibility
 
-This file pins the artifacts a reviewer should see after running the smoke
+This file pins the artifacts users should see after running the smoke
 demo (`make smoke-oof` or its Windows equivalent) at commit `HEAD` with
 `DESQ_SEED=42`. It is the falsifiable half of the anti-fabrication argument:
 if numbers you obtain drift outside the tolerance bands, either your setup
@@ -35,7 +35,7 @@ was modified — the numbers below no longer apply.
 > Prefixes above are SHA-256 of the LF-normalized blob as stored in git
 > (matches `git show :<file> | sha256sum`). On Windows with
 > `core.autocrlf=true` you may see a different hash for the working-tree
-> file; run the reviewer verification from a Linux/WSL clone or from
+> file; run the verification from a Linux/WSL clone or from
 > `python reproducibility/check_manifest.py` (which resolves that
 > difference via `.gitattributes`).
 
@@ -65,7 +65,7 @@ Expected `artifacts/des/backtest/summary.csv` (single row for 2330):
 | `has_prices`       | `True` | exact |
 | `n_test_days`      | `540`  | exact (test window 2024-01-01..2026-03-31 minus warmup) |
 | `total_ret_stock`  | `2.002 ± 1e-3` | exact — buy-and-hold, deterministic |
-| `total_ret_model`  | `0.47 ± 0.30`  | see §3 (single-seed variance) |
+| `total_ret_model`  | `1.685 ± 0.05` | repeated seed-42 clean-clone result; tolerance permits backend numeric drift |
 | `acc_buy`          | `10 ± 3` | count of correct buys |
 | `acc_sell`         | `9 ± 3`  | count of correct sells |
 
@@ -100,8 +100,8 @@ Non-zero `n_test_days_std` or `total_ret_stock_std` proves the sweep script
 mixed test windows — this is a bug, not a randomness question.
 
 The wide `total_ret_model_std / |total_ret_model_mean| ≈ 0.46` is the
-reason we do NOT quote single-seed excess returns in the paper; §IV.H uses
-the mean ± std over ≥ 5 seeds. Reviewers should replicate that with:
+reason we do not use single-seed excess returns as headline results. Validate
+the mean ± std over at least five seeds with:
 
 ```bash
 make seed-sweep STOCK=2330 SWEEP_SEEDS=42,123,456,789,2024
@@ -143,6 +143,6 @@ benign and documented in the script comments.
 - OS: Windows 10 host, WSL2 Ubuntu-24.04 for training
 - Python: `3.11.14` (conda env `finlab`)
 - Key pins: TensorFlow `2.21.0`, Keras `3.14.0`, DESlib `0.3.7`,
-  scikit-learn `1.7.1`, keras-tuner `1.4.7`
+  scikit-learn `1.7.1`, keras-tuner `1.4.8`
 - Full lock: [`../requirements-lock.txt`](../requirements-lock.txt)
 - Commit: run `git rev-parse HEAD` to record the exact tree state

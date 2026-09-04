@@ -26,7 +26,7 @@ class TrainDqnTest(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertNotEqual(first, changed)
 
-    def test_paper_defaults(self):
+    def test_reference_defaults(self):
         cfg = default_cfg()
 
         self.assertEqual(cfg["bars_count"], 10)

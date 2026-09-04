@@ -2,7 +2,7 @@
 
 Runs the pipeline stages under a list of RNG seeds and aggregates per-stock
 backtest metrics with mean/std across seeds. Produces the evidence CSV that
-IEEE Access §IV.H reviewers expect to see for "mean +/- std across seeds".
+This provides the "mean +/- std across seeds" reproducibility summary.
 
 Typical usage
 -------------

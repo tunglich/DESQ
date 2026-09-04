@@ -1,8 +1,7 @@
 # =============================================================================
 # TW-50 DESQ pipeline — Makefile
 # =============================================================================
-# Wraps the four pipeline stages plus figure/table regeneration so reviewers
-# can reproduce the paper's results with a single `make` command per artifact.
+# Wraps the four pipeline stages plus figure/table regeneration.
 #
 # Usage
 # -----
@@ -11,7 +10,7 @@
 #   make full-2330       # production settings for TSMC (~20 min on GPU)
 #   make full-flagships  # TSMC + MediaTek
 #   make full-top50      # complete TW-50 batch
-#   make figures         # regenerate revised-paper Figure B1
+#   make figures         # regenerate the training-flow diagram
 #   make tables          # regenerate summary tables
 #   make preflight       # environment sanity checks
 #   make lint            # ast.parse on all pipeline scripts
@@ -62,10 +61,10 @@ help:
 	@echo "    make stage4-data  # build Double-DQN input from Stage 3 output"
 	@echo "    make stage4-train # train all five DQN walk-forward folds"
 	@echo "    make stage4-backtest # evaluate a promoted Stage 4 checkpoint"
-	@echo "    make monitor-smoke # synthetic Appendix-F Level 0-3 smoke"
+	@echo "    make monitor-smoke # synthetic Level 0-3 monitoring smoke"
 	@echo "    make monitor-stage2 # immutable Stage 2 snapshot for STOCK"
-	@echo "    make repro        # reviewer path: hashes + yfinance check + smoke"
-	@echo "    make figures      # regenerate revised-paper Figure B1"
+	@echo "    make repro        # hashes + yfinance check + smoke"
+	@echo "    make figures      # regenerate the training-flow diagram"
 	@echo "    make preflight    # environment sanity checks"
 	@echo ""
 	@echo "  Override with STOCK=, TRIALS=, EPOCHS=, BATCH= on the command line."
@@ -122,13 +121,13 @@ monitor-stage2:
 	$(PY) -m monitoring collect-stage2 --stock-id $(STOCK)
 
 # ---------------------------------------------------------------------------
-# Seed sweep (multi-seed backtest -> mean +/- std for paper Table)
+# Seed sweep (multi-seed backtest -> mean +/- std)
 # ---------------------------------------------------------------------------
 seed-sweep:
 	$(PY) scripts/run_seed_sweep.py --stock-ids $(STOCK) --seeds $(SWEEP_SEEDS) --stages $(SWEEP_STAGES)
 
 # ---------------------------------------------------------------------------
-# Baseline reproducibility (US peer methods in current-paper Table 6)
+# Baseline reproducibility (US peer methods)
 # ---------------------------------------------------------------------------
 # Snapshot shipped CSVs, rerun baselines, then diff shipped vs rerun.
 rerun-baselines:
@@ -143,7 +142,7 @@ snapshot-baselines:
 	bash us/baselines/run_all_baselines.sh --verify-only --force-snapshot || true
 
 # ---------------------------------------------------------------------------
-# Reviewer reproducibility kit (public-data checks, no proprietary access)
+# Reproducibility kit (public-data checks, no proprietary access)
 # ---------------------------------------------------------------------------
 verify-prices:
 	$(PY) reproducibility/verify_public_prices.py --stock-ids $(STOCK)
@@ -155,7 +154,7 @@ hash-shipped:
 manifest-check:
 	$(PY) reproducibility/check_manifest.py
 
-# One-shot reviewer path: fingerprints -> public-price cross-check -> smoke.
+# One-shot validation path: fingerprints -> public-price cross-check -> smoke.
 repro: hash-shipped verify-prices smoke-oof
 
 # ---------------------------------------------------------------------------
@@ -169,7 +168,7 @@ smoke:
 	$(PY) tw50_des.py     --stock-ids $(STOCK) --no-show
 	@echo "Smoke test complete. See artifacts/des/backtest/summary.csv"
 
-# Same as smoke but with --des-oof so reviewers can verify the OOF path.
+# Same as smoke but with --des-oof to verify the OOF path.
 smoke-oof:
 	$(PY) fetch_prices.py --stock-ids $(STOCK)
 	$(PY) tw50_flood.py   --stock-ids $(STOCK) --aspect all --trials $(SMOKE_TRIALS) --epochs $(SMOKE_EPOCHS) --batch-size $(SMOKE_BATCH)
@@ -196,7 +195,7 @@ full-top50:
 	$(PY) tw50_des.py     --top50 --no-show --strict-oof
 
 # ---------------------------------------------------------------------------
-# Paper figure / tables regenerated without model training.
+# Evaluation figure / tables regenerated without model training.
 # ---------------------------------------------------------------------------
 figures:
 	$(PY) docs/_render_training_pipeline.py

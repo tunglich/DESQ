@@ -1,9 +1,6 @@
 # TW-50 Attention + Flooding + DES Pipeline
 
 [![CI](https://github.com/tunglich/DESQ/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tunglich/DESQ/actions/workflows/ci.yml)
-[![DOI](https://zenodo.org/badge/DOI/pending.svg)](https://doi.org/pending) <!-- replace with real DOI after Zenodo mints it -->
-
-> **Revised-paper release candidate**: this branch targets `v1.2-desq` and the complete 28-page paper authority recorded in [docs/paper_revision_v1.2.md](docs/paper_revision_v1.2.md). Published `v1.0-desq` and `v1.1-desq` tags remain immutable historical snapshots.
 
 A market-timing framework for the TWSE Top-50 constituents that stacks:
 
@@ -12,29 +9,29 @@ A market-timing framework for the TWSE Top-50 constituents that stacks:
 3. **Dynamic Ensemble Selection (KNORA-E, K=30)** across the 5 per-aspect ATT predictions.
 4. **Signal-Conditioned Double DQN** using the DES signal, OHLC history, position state, and running P&L to choose `Skip / Buy / Close`.
 
-The pipeline uses the revised paper's five **walk-forward rolling validation**
+The pipeline uses five **walk-forward rolling validation**
 windows (4:1 train:validation ratio) with a 20-day label horizon and a further
 30-trading-day purge on five feature aspects.
 
 ## End-to-end training pipeline
 
-The seven stages below reproduce the revised paper's Appendix B Figure B1,
+The seven stages below describe the end-to-end supervised training flow,
 with repository script annotations added in blue. The `next aspect` loop
 repeats stages 2–5 for each of the five feature aspects; after all five aspects
-are trained, stages 6–7 run once. The paper's separate Signal-Conditioned
+are trained, stages 6–7 run once. The separate Signal-Conditioned
 Double DQN execution layer is documented under Stage 4 below.
 
-![Figure B1. End-to-end DESQ training and back-test pipeline (7 stages, with repository code annotations)](docs/training_pipeline.png)
+![End-to-end DESQ training and back-test pipeline](docs/training_pipeline.png)
 
 Regenerate the figure with `python docs/_render_training_pipeline.py`.
 
 ## Self-improving monitoring protocol
 
-The `monitoring` package implements Appendix F Eqs. (10)-(20): mature-label
-filtering, predictive/trading diagnostics, the paper's five-alarm trigger over
+The `monitoring` package implements the reference monitoring equations:
+mature-label filtering, predictive/trading diagnostics, a five-alarm trigger over
 two adjacent mature windows, immutable evaluations, and non-executing update
-plans. The paper's hypothetical localized Level-2 case is represented without
-claiming that monitoring was active in the reported experiments. General Level
+plans. A hypothetical localized Level-2 case is represented without claiming
+that monitoring was active in the reported experiments. General Level
 0-3 routing and numerical thresholds remain labeled repository operational
 policy.
 
@@ -44,23 +41,23 @@ schemas, evaluation commands, and the deployment safety boundary.
 
 ## Experimental results
 
-The revised paper reports the following sealed-holdout results. These are the
-canonical headline values for this branch; their current evidence status is
+The evaluation bundle records the following sealed-holdout results. Their
+current evidence status is
 `reported_only` because the corresponding DDQN checkpoints and action paths
 are not shipped. See [evaluation/paper/README.md](evaluation/paper/README.md).
 
-| Revised-paper result | DESQ DDQN return | Benchmark return | Canonical source |
+| Evaluation result | DESQ DDQN return | Benchmark return | Reference source |
 | --- | ---: | ---: | --- |
-| TSMC (2330.TT) | **+202.50%** | +201.82% | [Appendix C Table C1](evaluation/paper/tables/table10_top50_flooding.csv) |
-| MediaTek (2454.TT) | **+101.20%** | +62.69% | [Appendix C Table C1](evaluation/paper/tables/table10_top50_flooding.csv) |
+| TSMC (2330.TT) | **+202.50%** | +201.82% | [Per-stock ablation results](evaluation/paper/tables/table10_top50_flooding.csv) |
+| MediaTek (2454.TT) | **+101.20%** | +62.69% | [Per-stock ablation results](evaluation/paper/tables/table10_top50_flooding.csv) |
 | TWSE Top-50 portfolio | **+129.0%** | +88.07% | [evaluation/paper/tables/table8_regime.csv](evaluation/paper/tables/table8_regime.csv) |
 
-### Current-paper result bundle
+### Evaluation result bundle
 
 The repository publishes deterministic, machine-readable transcriptions and
-audits for every numerical table in the revised paper:
+audits for the reference evaluation tables:
 
-| Paper artifact | Subject | Repository artifact |
+| Evaluation artifact | Subject | Repository artifact |
 | --- | --- | --- |
 | Table 3 | Five walk-forward folds and sealed holdout precision | [table3_walk_forward.md](evaluation/paper/tables/table3_walk_forward.md) |
 | Table 4 | Cumulative module ablation | [table4_module_ablation.md](evaluation/paper/tables/table4_module_ablation.md) |
@@ -71,12 +68,12 @@ audits for every numerical table in the revised paper:
 | Table A1 | Five-group, 78-feature taxonomy | [table9_feature_taxonomy.md](evaluation/paper/tables/table9_feature_taxonomy.md) |
 | Table C1 | Per-stock Dynamic-Flooding ablation | [table10_top50_flooding.md](evaluation/paper/tables/table10_top50_flooding.md) |
 
-Current-paper U.S. DDQN returns are **67.4%** for the Dow 30, **82.8%** for
+Reference U.S. DDQN returns are **67.4%** for the Dow 30, **82.8%** for
 the S&P 100, and **83.5%** for the NASDAQ 100. Complete annual return,
 volatility, Sharpe, Sortino, drawdown, Calmar, benchmark, and peer-method
 comparisons are in Table 6.
 
-### Runtime reported in Table E1
+### Reference runtime
 
 | Cost item | Scope | Approximate time |
 | --- | --- | ---: |
@@ -97,9 +94,9 @@ comparisons are in Table 6.
 
 ## Feature aspects (5)
 
-The pipeline uses five attribute-grouped feature aspects. The names in the accompanying IEEE Access paper differ slightly from the identifiers used in the code and on disk; the table below is the canonical mapping.
+The pipeline uses five attribute-grouped feature aspects. The display names differ slightly from the identifiers used in the code and on disk; the table below is the canonical mapping.
 
-| Paper name    | Code identifier | On-disk file pattern           | Description                                                        |
+| Display name  | Code identifier | On-disk file pattern           | Description                                                        |
 | ------------- | --------------- | ------------------------------ | ------------------------------------------------------------------ |
 | Fundamental   | `fundamental`   | `features/fundamental_<id>.csv` | Valuation ratios, revenue / EPS / margin growth at MoM/QoQ/YoY.    |
 | Float         | `trade`         | `features/trade_<id>.csv`       | Chip-flow / smart-money: foreign & institutional holdings, margin, short-balance, net-buy. |
@@ -168,8 +165,8 @@ tw50_pipeline/
 │   ├── flood/{hyperbayes,feature_selection,feature_scaler,experiments}/
 │   ├── dflood/{feature_selection,feature_scaler,models,pred}/
 │   └── des/{pred,models,backtest}/
-├── evaluation/paper/            # revised-paper tables, sources, and audits
-└── dqn/                         # Stage 4: paper-aligned Double DQN execution
+├── evaluation/paper/            # evaluation tables, sources, and audits
+└── dqn/                         # Stage 4: Double DQN execution
 ```
 
 ## Install
@@ -182,7 +179,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt        # tested compatible ranges
-# or, to reproduce the paper's exact environment:
+# or, to reproduce the reference environment:
 pip install -r requirements-lock.txt   # exact versions (pip freeze snapshot)
 ```
 
@@ -192,7 +189,7 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt        # tested compatible ranges
-# or, to reproduce the paper's exact environment:
+# or, to reproduce the reference environment:
 pip install -r requirements-lock.txt   # exact versions (pip freeze snapshot)
 ```
 
@@ -233,7 +230,7 @@ global RNG seed is threaded into `PYTHONHASHSEED`, `random`, `numpy`,
 `tf.keras.utils.set_random_seed`, `tf.config.experimental.enable_op_determinism()`,
 `kt.oracles.BayesianOptimizationOracle(seed=...)`, and
 `RandomForestClassifier(random_state=...)`. Use `scripts/run_seed_sweep.py` to
-regenerate the multi-seed mean ± std evidence CSV expected in §IV.H:
+regenerate the multi-seed mean ± std evidence CSV:
 
 ```bash
 python scripts/run_seed_sweep.py --stock-ids 2330,2454 \
@@ -242,13 +239,13 @@ python scripts/run_seed_sweep.py --stock-ids 2330,2454 \
 ```
 
 Pass `--stages 23` or `--stages 123` to also retrain Stage 2 / Stages 1+2 per seed
-(slower; used when reviewers question tuner determinism).
+(slower; useful when validating tuner determinism).
 
-### Table 6 peer-method reproducibility
+### Peer-method reproducibility
 
 The `us/baselines/` tree contains implementations and audit inputs for the
-DSR-Yang, DRL Ensemble, and MACE peer rows in current-paper Table 6 across
-`dow30 / sp100 / ndx100`. Reviewers with the required U.S. price data can
+DSR-Yang, DRL Ensemble, and MACE peer rows across `dow30 / sp100 / ndx100`.
+Users with the required U.S. price data can
 regenerate the peer CSVs and diff them against the shipped validation inputs:
 
 ```bash
@@ -261,13 +258,13 @@ make verify-baselines
 ```
 
 `verify_baselines.py` walks `_shipped_snapshot/` recursively, matches method
-metrics, predictions, selections, equity paths, and Table 6 comparison inputs,
+metrics, predictions, selections, equity paths, and comparison inputs,
 prints a per-file `PASS/FAIL` with the worst numerical-column diff, and exits
 `1` on any drift.
 
-### Reviewer reproducibility kit (public data only, 10 min CPU)
+### Reproducibility kit (public data only, 10 min CPU)
 
-`reproducibility/` gives a reviewer without Cmoney access a falsifiable
+`reproducibility/` gives users without CMoney access a falsifiable
 end-to-end check on the TW50 pipeline. See
 [`reproducibility/README.md`](reproducibility/README.md) for the full
 walkthrough; the one-command path is:
@@ -363,7 +360,7 @@ python -c "from pathlib import Path; ids = ['2330','2454']; missing = [s for s i
 ## Notes and caveats
 
 - **Prices are user-supplied.** `tw50_des.py` reads `prices/<stock_id>.csv` with columns `Date,Open,High,Low,Close,Volume`. Use `fetch_prices.py` (yfinance) or bring your own source. Without a price CSV, Stage 3 still saves the DES/RF probability files but skips the backtest.
-- **Walk-forward rolling constants**: `WF_N_SPLITS=5`, `WF_VAL_RATIO=0.2`, and `WF_GAP=50` anchor intervals. The effective gap implements the paper equation as a 20-day label horizon followed by a separate 30-trading-day purge. `WF_GAP` remains overridable for diagnostics, but values below 50 are not the revised-paper protocol.
+- **Walk-forward rolling constants**: `WF_N_SPLITS=5`, `WF_VAL_RATIO=0.2`, and `WF_GAP=50` anchor intervals. The effective gap implements a 20-day label horizon followed by a separate 30-trading-day purge. `WF_GAP` remains overridable for diagnostics, but values below 50 are outside the reference protocol.
 - **Stage 2 emits both train and test predictions.** By default the DES-train window (2020-01-01..2023-12-31) is predicted by the same ATT that was trained on 2010-2023, so those rows are *in-sample* w.r.t. the ATT. The reported out-of-sample metrics still come from the strictly held-out 2024-01-01..2026-03-31 window, but the KNORA-E meta-learner does see in-sample ATT probabilities during its fit.
   - Pass `--des-oof` to `tw50_dflood.py` to instead train an inner ATT on `TRAIN_START..(DES_TRAIN_START - WF_GAP)` and use it to predict the DES-train window. The resulting rows are tagged `source='oof'` in the CSV. Test-window rows are always tagged `source='test'` and produced by the final ATT trained on the full 2010-2023 window.
   - Pass `--strict-oof` to `tw50_des.py` to abort the run if any aspect's DES-train rows are not `source='oof'` (a leakage guard for reproducibility scripts).
@@ -389,38 +386,11 @@ python -c "from pathlib import Path; ids = ['2330','2454']; missing = [s for s i
 
 ## Stage 4 — Double DQN execution
 
-The `dqn/` subfolder contains the revised paper's execution layer, adapted from `tunglich/Market-Timing-DQN` and driven by the Stage 3 `<DES>` feature. Its defaults now use Double-DQN targets, prioritised replay, $\gamma=0.99$, a 5,000-step hard target update, and Taiwan buy/sell costs of 0.1425%/0.4425%. See [dqn/README.md](dqn/README.md).
-
-## How to cite
-
-Please cite the specific release DOI rather than the head of the main branch,
-so reviewers can reproduce the exact bytes you ran against. `v1.2-desq` is the
-current release candidate; `v1.0-desq` and `v1.1-desq` remain immutable
-historical snapshots. Zenodo's concept DOI links the archived releases.
-
-**BibTeX** (replace `10.5281/zenodo.XXXXXXX` with the DOI printed on the
-Zenodo record once the release is minted):
-
-```bibtex
-@software{chen_desq_2026,
-  author    = {Chen, Tung-Li},
-  title     = {DESQ: Dynamic-Flooding Transformer Ensembles for
-               Reinforcement-Learning-Based Equity Market Timing
-               (v1.2-desq)},
-  year      = {2026},
-  publisher = {Zenodo},
-  version   = {v1.2-desq},
-  doi       = {10.5281/zenodo.XXXXXXX},
-  url       = {https://doi.org/10.5281/zenodo.XXXXXXX},
-  note      = {Revised-paper implementation and evidence bundle for the
-               IEEE Access submission}
-}
-```
-
-Machine-readable metadata lives in [CITATION.cff](CITATION.cff) (parsed by
-GitHub's "Cite this repository" button) and [.zenodo.json](.zenodo.json)
-(consumed by Zenodo when the GitHub release is archived). Update the DOI
-placeholder in both files after Zenodo mints the identifier.
+The `dqn/` subfolder contains the reference execution layer, adapted from
+`tunglich/Market-Timing-DQN` and driven by the Stage 3 `<DES>` feature. Its
+defaults use Double-DQN targets, prioritised replay, $\gamma=0.99$, a 5,000-step
+hard target update, and Taiwan buy/sell costs of 0.1425%/0.4425%. See
+[dqn/README.md](dqn/README.md).
 
 ## License
 
@@ -432,7 +402,7 @@ The repository distributes three categories of data with different licensing ter
 
 | Location                                    | Origin                                     | License / redistribution status                                                                                                                                        |
 | ------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `features/*.csv` (TW-50 aspect features)    | Derived from licensed CMoney fundamental / chip-flow data. | **Derived features only**; raw CMoney data is *not* included. Redistributed here for academic reproducibility of the paper. Commercial re-use requires a CMoney licence. |
+| `features/*.csv` (TW-50 aspect features)    | Derived from licensed CMoney fundamental / chip-flow data. | **Derived features only**; raw CMoney data is *not* included. Commercial re-use requires a CMoney licence. |
 | `evaluation/*.csv`, `us/baselines/**/*.csv` | Produced by the scripts in this repository. | MIT, same as the source code.                                                                                                                                          |
 | `prices/*.csv`                              | User-supplied (e.g. yfinance via `fetch_prices.py`). | Subject to the source provider's terms; git-ignored, never committed.                                                                                                  |
 | `us/features/**.csv` (Dow30 / SP100 / NDX100 aspects) | Derived from public sources (yfinance + FRED). | Redistributable under MIT; independently reproducible via the scripts in `us/`.                                                                                        |

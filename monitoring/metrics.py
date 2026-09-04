@@ -1,4 +1,4 @@
-"""Pure metric functions for the Appendix F monitoring equations."""
+"""Pure metric functions for the reference monitoring equations."""
 from __future__ import annotations
 
 import math

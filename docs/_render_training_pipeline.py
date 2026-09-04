@@ -1,6 +1,6 @@
-"""Render docs/training_pipeline.png — revised-paper Figure B1 (7 stages).
+"""Render the seven-stage training-flow diagram.
 
-This is the DESQ-repo copy of the IEEE-style pipeline figure with per-stage
+This is the DESQ repository pipeline figure with per-stage
 code annotations pointing to the scripts in this repository.
 """
 from __future__ import annotations

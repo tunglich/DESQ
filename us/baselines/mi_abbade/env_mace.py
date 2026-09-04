@@ -20,7 +20,7 @@ The permanent price shift on the mid-quote is:
     ΔP = α * σ * (x/V) * P     (signed by trade direction)
 which then decays each day as ΔP_t = ΔP_{t-1} * (1 - λ) with λ = 1 - 2^(-1/τ½).
 
-Default parameters follow the paper (Section II-B/C):
+Default parameters follow the reference method:
     α = 0.5   (permanent impact prefactor)
     β = 1.0   (temporary impact prefactor)
     ε = 5e-4  (5 bps half-spread)

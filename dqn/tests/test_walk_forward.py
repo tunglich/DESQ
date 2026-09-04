@@ -11,10 +11,10 @@ import pandas as pd
 DQN_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(DQN_ROOT))
 
-from src.walk_forward import PAPER_WINDOWS, split_folds  # noqa: E402
+from src.walk_forward import REFERENCE_WINDOWS, split_folds  # noqa: E402
 
 
-class PaperWalkForwardTest(unittest.TestCase):
+class ReferenceWalkForwardTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dates = pd.bdate_range("2005-01-03", "2023-12-29")
@@ -26,10 +26,10 @@ class PaperWalkForwardTest(unittest.TestCase):
             "<CLOSE>": np.ones(len(dates)),
         })
 
-    def test_uses_the_five_paper_windows(self):
+    def test_uses_the_five_reference_windows(self):
         folds = split_folds(self.frame)
         self.assertEqual(len(folds), 5)
-        for (train, validation), (start, end) in zip(folds, PAPER_WINDOWS):
+        for (train, validation), (start, end) in zip(folds, REFERENCE_WINDOWS):
             self.assertEqual(train["<DATE>"].min().year, start.year)
             self.assertEqual(validation["<DATE>"].max().year, end.year)
 

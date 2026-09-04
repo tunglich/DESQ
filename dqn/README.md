@@ -6,7 +6,7 @@ running P&L, and `Skip / Buy / Close` actions) applied to the TW-50 universe, ad
 
 This directory is the formal Stage 4 execution layer of DESQ. The rule-based
 backtest emitted by `../tw50_des.py` remains available as a diagnostic but is
-not the revised paper's final trading strategy.
+not the reference DDQN execution strategy.
 
 ## What changed vs the reference repo
 
@@ -26,7 +26,7 @@ not the revised paper's final trading strategy.
    `build_dqn_data.py`, `walk_forward.py`, `train_dqn.py`, and
   `backtest.py`.
 
-3. **Revised-paper learning contract.** The active trainer uses Double-DQN
+3. **Reference learning configuration.** The active trainer uses Double-DQN
   targets with prioritised replay, $\gamma=0.99$, hard target synchronization
   every 5,000 environment steps, epsilon decay from 1.0 to 0.05 over 100,000
   steps, and Taiwan costs of 0.1425% on buys and 0.4425% on sells.
@@ -70,10 +70,10 @@ dqn/
    cd dqn
    ```
 
-  The revised-paper preset requires DES predictions covering all five Table 3
+  The full evaluation preset requires DES predictions covering all five rolling
   windows, beginning in 2005, plus the sealed 2024-2026Q1 holdout. The compact
   Stage 2 output currently begins in 2020 and is therefore insufficient for a
-  paper reproduction. See "Coverage note" below.
+  full evaluation. See "Coverage note" below.
 
 2. OHLCV files must live at `../prices/<sym>.csv` with columns
    `Date, Open, High, Low, Close, Volume`. `../fetch_prices.py` populates
@@ -142,8 +142,8 @@ Mean model_pct=+59.18%   Mean bh_pct=+201.25%   Mean excess=-142.08%
 not a production result. See "Production settings" below for the intended
 training budget.
 
-Also note step 3 uses just fold 0. A paper-complete dry run reports the five
-Table 3 windows. Fold 2 follows the explicit example in Section III.F:
+Also note step 3 uses just fold 0. A full dry run reports the five reference
+windows. Fold 2 is:
 
 ```text
 fold 2 window: 2007-01-02 ~ 2017-12-29
@@ -155,7 +155,7 @@ fold 2 window: 2007-01-02 ~ 2017-12-29
 ## Production settings — one stock
 
 ```bash
-# Train the nine paper agents in isolated directories and emit one candidate
+# Train nine agents in isolated directories and emit one candidate
 # row per seed, each pointing to that seed's best validation fold.
 for seed in {1..9}; do
   python src/train_dqn.py --symbol 2330 --fold all --hours 1.5 \
@@ -170,12 +170,11 @@ python src/select_median_agents.py --manifest manifests/2330_candidates.csv \
 python src/backtest.py --symbol 2330
 ```
 
-The revised paper evaluates nine random seeds and selects the median
+The reference protocol evaluates nine random seeds and selects the median
 validation-return agent independently per stock. The seeded training and
 selection contract is automated, but the nine-seed checkpoints and NAV paths
 are not shipped; therefore the reported headline return remains
-`reported_only`. Track remaining evidence gaps in
-[`../docs/paper_alignment.md`](../docs/paper_alignment.md).
+`reported_only`.
 
 ## Focused tests
 
@@ -184,7 +183,7 @@ python -m unittest discover -s tests -v
 ```
 
 The tests include a discriminating Double-DQN case where the online and target
-networks prefer different next actions, plus assertions for the paper defaults.
+networks prefer different next actions, plus assertions for the reference defaults.
 
 ## Batch — full TW-50
 
@@ -211,12 +210,12 @@ python src/backtest.py --all --out backtest_summary.csv
 
 The compact parent-repo Stage 2 (`../tw50_dflood.py`) emits DES predictions for
 2020-01-02..2023-12-31 and the OOS test window. This is enough for smoke tests,
-but not for the revised paper's 2005-2023 rolling windows. Production
-reproduction must first regenerate causal DES histories for every Table 3
+but not for the full 2005-2023 rolling windows. Production
+evaluation must first regenerate causal DES histories for every reference
 window. The 2024-01-02..2026-03-31 holdout remains sealed.
 
-- **Smoke runs are implementation checks**, not paper reproductions.
-- **Paper runs require causal specialist and DES outputs for 2005-2023**, with
+- **Smoke runs are implementation checks**, not full evaluations.
+- **Full runs require causal specialist and DES outputs for 2005-2023**, with
   a 20-day label horizon followed by the 30-trading-day purge.
 
 ## Data schema

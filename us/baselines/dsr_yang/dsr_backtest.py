@@ -1,4 +1,4 @@
-"""Yang 2018 IEEE DSR — generalized to any universe (Dow30 / SP100 / NDX100).
+"""Yang 2018 DSR — generalized to any universe (Dow30 / SP100 / NDX100).
 
 Same methodology as `sp100_dsr_backtest.py`, but universe is parameterised.
 Tickers without complete feature files are skipped automatically.
@@ -532,11 +532,11 @@ def main(universe_key: str) -> int:
     plt.xlabel("Date"); plt.ylabel("Portfolio value ($, rebased $1M)")
     plt.legend(loc="upper left", fontsize=10); plt.grid(True, alpha=0.3)
     plt.xticks(rotation=30); plt.tight_layout()
-    plt.savefig(out_dir / "paper_vs_des.png", dpi=150); plt.close()
-    print(f"[OK] wrote {out_dir / 'paper_vs_des.png'}")
+    plt.savefig(out_dir / "baseline_vs_des.png", dpi=150); plt.close()
+    print(f"[OK] wrote {out_dir / 'baseline_vs_des.png'}")
 
     with open(out_dir / "summary.txt", "w") as f:
-        f.write(f"Yang 2018 IEEE DSR — {label} reproduction\n")
+        f.write(f"Yang 2018 DSR — {label} reproduction\n")
         f.write(f"Trade period: {TRADE_START.date()} ~ {TRADE_END.date()}\n")
         f.write(f"Universe: {len(tickers)} candidates → kept {panel['tic'].nunique()} in panel\n")
         f.write(f"Rolling: {TRAIN_Q}Q train + {TEST_Q}Q validation → predict next 1Q\n")

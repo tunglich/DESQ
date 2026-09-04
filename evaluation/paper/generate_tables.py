@@ -1,8 +1,8 @@
-"""Generate and audit revised-paper Tables 3-8, A1, and C1.
+"""Generate and audit reference evaluation tables.
 
-Reported-only tables are deterministic transcriptions of the authoritative PDF,
+Reported-only tables are deterministic transcriptions of the reference snapshot,
 not empirical reproductions. Validation reports show which rows can be rebuilt
-from shipped raw artifacts and verify internal paper-table contracts.
+from shipped raw artifacts and verify internal table contracts.
 """
 from __future__ import annotations
 
@@ -21,11 +21,11 @@ import pandas as pd
 import generate_table9 as feature_taxonomy
 
 
-PAPER_DIR = Path(__file__).resolve().parent
-ROOT = PAPER_DIR.parents[1]
-SOURCES = PAPER_DIR / "sources"
-TABLES = PAPER_DIR / "tables"
-VALIDATION = PAPER_DIR / "validation"
+EVALUATION_DIR = Path(__file__).resolve().parent
+ROOT = EVALUATION_DIR.parents[1]
+SOURCES = EVALUATION_DIR / "sources"
+TABLES = EVALUATION_DIR / "tables"
+VALIDATION = EVALUATION_DIR / "validation"
 RF_ANNUAL = 0.0442
 ANN = 252
 
@@ -38,7 +38,7 @@ TABLE_SPECS = (
     (8, "regime", "Regime-conditional performance"),
     (10, "top50_flooding", "Per-stock OOS returns and flooding ablations"),
 )
-PAPER_LABELS = {9: "A1", 10: "C1"}
+DISPLAY_LABELS = {9: "A1", 10: "C1"}
 
 
 def sha256(path: Path) -> str:
@@ -76,7 +76,7 @@ def latex_escape(value: object) -> str:
 def render_markdown(path: Path, title: str, rows: list[dict[str, str]]) -> None:
     fields = list(rows[0])
     lines = [f"# {title}", "",
-             "Evidence status is row-specific; `reported_only` is a PDF transcription.", "",
+             "Evidence status is row-specific; `reported_only` is a reference transcription.", "",
              "| " + " | ".join(fields) + " |",
              "| " + " | ".join("---" for _ in fields) + " |"]
     lines.extend("| " + " | ".join(markdown_escape(row[field]) for field in fields) + " |"
@@ -88,7 +88,7 @@ def render_latex(path: Path, number: int | str, title: str, rows: list[dict[str,
     fields = list(rows[0])
     columns = "l" * len(fields)
     lines = [r"\begin{landscape}", r"\begin{longtable}{" + columns + "}",
-             f"\\caption{{{latex_escape(title)}}}\\label{{tab:paper_{number}}} " + r"\\",
+             f"\\caption{{{latex_escape(title)}}}\\label{{tab:evaluation_{number}}} " + r"\\",
              r"\toprule", " & ".join(latex_escape(field) for field in fields) + r" \\",
              r"\midrule", r"\endfirsthead", r"\toprule",
              " & ".join(latex_escape(field) for field in fields) + r" \\", r"\midrule",
@@ -155,7 +155,7 @@ def validate_table6(rows: list[dict[str, str]]) -> list[dict[str, object]]:
             expected = float(row[metric])
             difference = actual[metric] - expected
             report.append({"universe": row["universe"], "method": method,
-                           "metric": metric, "paper_value": expected,
+                           "metric": metric, "reference_value": expected,
                            "recomputed_value": round(actual[metric], 6),
                            "difference": round(difference, 6),
                            "pass_0_02": abs(difference) <= 0.02})
@@ -183,11 +183,11 @@ def validate_table8(rows: list[dict[str, str]]) -> list[dict[str, object]]:
             - float(row["benchmark_return_pct"])
             - float(row["excess_pp"])
         ) <= 0.011
-        report.append({"regime": row["regime"], "paper_days": int(row["days"]),
+        report.append({"regime": row["regime"], "reference_days": int(row["days"]),
                        "excess_arithmetic_ok": arithmetic_ok,
                        "partition_days_ok": partition_days == full_days})
     if not all(item["excess_arithmetic_ok"] and item["partition_days_ok"] for item in report):
-        raise ValueError("Table 8 paper contract validation failed")
+        raise ValueError("Table 8 reference contract validation failed")
     return report
 
 
@@ -228,9 +228,9 @@ def main() -> int:
         validate_statuses(rows, source)
         output_csv = TABLES / f"table{number}_{slug}.csv"
         shutil.copyfile(source, output_csv)
-        paper_label = PAPER_LABELS.get(number, str(number))
-        render_markdown(TABLES / f"table{number}_{slug}.md", f"Table {paper_label}. {title}", rows)
-        render_latex(TABLES / f"table{number}_{slug}.tex", paper_label, title, rows)
+        display_label = DISPLAY_LABELS.get(number, str(number))
+        render_markdown(TABLES / f"table{number}_{slug}.md", f"Table {display_label}. {title}", rows)
+        render_latex(TABLES / f"table{number}_{slug}.tex", display_label, title, rows)
         statuses = Counter(row["evidence_status"] for row in rows)
         manifest["tables"][str(number)] = {
             "title": title, "rows": len(rows), "source": source.relative_to(ROOT).as_posix(),
@@ -239,7 +239,7 @@ def main() -> int:
         if number == 6:
             write_rows(VALIDATION / "table6_shipped_nav_check.csv", validate_table6(rows))
         elif number == 8:
-            write_rows(VALIDATION / "table8_paper_contract_check.csv", validate_table8(rows))
+            write_rows(VALIDATION / "table8_reference_contract_check.csv", validate_table8(rows))
         elif number == 10:
             write_rows(VALIDATION / "table10_arithmetic_universe_check.csv", validate_table10(rows))
 
@@ -256,13 +256,13 @@ def main() -> int:
             "reproduced": 4, "reproduced_with_schema_drift": 1},
     }
 
-    manifest_path = PAPER_DIR / "tables_manifest.json"
+    manifest_path = EVALUATION_DIR / "tables_manifest.json"
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
         newline="\n",
     )
-    print("Generated and audited revised-paper Tables 3-8, A1, and C1")
+    print("Generated and audited reference evaluation tables")
     return 0
 
 

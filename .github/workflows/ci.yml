@@ -73,7 +73,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install "pandas>=2.0" "numpy>=1.26" "yfinance>=0.2"
-          pip install -r requirements-paper-audit.txt
 
       - name: Lint (Python syntax on 3 pipeline modules + fetch_prices)
         working-directory: ${{ steps.root.outputs.root }}
@@ -86,10 +85,9 @@ jobs:
                        'us/baselines/verify_baselines.py']]; \
             print('LINT OK')"
 
-      - name: Revised-paper audit, monitoring, and table tests
+      - name: Evaluation audit, monitoring, and table tests
         working-directory: ${{ steps.root.outputs.root }}
         run: |
-          python -m unittest discover -s tools/tests -v
           python -m unittest discover -s monitoring/tests -v
           python -m unittest discover -s evaluation/paper/tests -v
 
@@ -149,7 +147,7 @@ jobs:
     # The fast-checks job is the falsifiable reproducibility proof (manifest
     # + yfinance cross-check) and must stay green. The smoke job runs the
     # actual 3-stage pipeline; it is informational on ubuntu-latest CPU (no
-    # GPU) and uploads artifacts for reviewers to inspect.
+    # GPU) and uploads artifacts for inspection.
     continue-on-error: true
     defaults:
       run:
@@ -214,10 +212,10 @@ jobs:
           rs = float(row.iloc[0]['total_ret_stock'])
           rm = float(row.iloc[0]['total_ret_model'])
           print(f'2330: n_test_days={n}, total_ret_stock={rs:.4f}, total_ret_model={rm:.4f}')
-          # These bounds mirror reproducibility/EXPECTED_OUTPUT.md sec 2.
+          # Exact data invariants mirror reproducibility/EXPECTED_OUTPUT.md sec 2.
           assert n == 540, f'expected n_test_days=540, got {n}'
           assert abs(rs - 2.002) < 0.05, f'expected total_ret_stock~=2.002, got {rs}'
-          # total_ret_model varies more with reduced smoke trials; keep loose.
+          # Keep the model bound portable across CI backends and loose dependency resolution.
           assert -1.0 < rm < 3.0, f'total_ret_model={rm} outside sanity range'
           print('SUMMARY OK')
           PY

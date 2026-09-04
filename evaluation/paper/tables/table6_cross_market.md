@@ -1,20 +1,20 @@
 # Table 6. Cross-market portfolio back-test statistics
 
-Evidence status is row-specific; `reported_only` is a PDF transcription.
+Evidence status is row-specific; `reported_only` is a reference transcription.
 
 | universe | method | total_return_pct | excess_return_pct | annual_return_pct | annual_volatility_pct | sharpe_tbill | sortino_tbill | max_drawdown_pct | calmar | evidence_status | source_reference |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Dow 30 | DESQ (ours) | 67.40 | 47.51 | 25.99 | 12.00 | 1.80 | 2.62 | -10.08 | 2.58 | reported_only | PDF p19 Table 6 |
+| Dow 30 | DESQ (ours) | 67.40 | 47.51 | 25.99 | 12.00 | 1.80 | 2.62 | -10.08 | 2.58 | reported_only | Reference snapshot 6 |
 | Dow 30 | DRL Ensemble | 28.57 | 8.68 | 11.93 | 16.49 | 0.50 | 0.68 | -22.15 | 0.54 | reproducible_from_shipped_nav | us/baselines/combined/dow30_comparison.csv |
 | Dow 30 | DSR | 11.78 | -8.11 | 5.12 | 15.67 | 0.12 | 0.07 | -15.98 | 0.32 | reproducible_from_shipped_nav | us/baselines/combined/dow30_comparison.csv |
 | Dow 30 | MACE | 65.53 | 45.64 | 25.35 | 19.21 | 1.04 | 1.69 | -19.44 | 1.30 | reproducible_from_shipped_nav | us/baselines/combined/dow30_comparison.csv |
 | Dow 30 | ^DJI (benchmark) | 19.89 |  | 8.47 | 14.25 | 0.33 | 0.43 | -16.37 | 0.52 | reproducible_from_shipped_nav | us/baselines/combined/dow30_comparison.csv |
-| S&P 100 | DESQ (ours) | 82.80 | 43.81 | 31.06 | 12.50 | 2.13 | 3.25 | -10.40 | 2.99 | reported_only | PDF p19 Table 6 |
+| S&P 100 | DESQ (ours) | 82.80 | 43.81 | 31.06 | 12.50 | 2.13 | 3.25 | -10.40 | 2.99 | reported_only | Reference snapshot 6 |
 | S&P 100 | DRL Ensemble | 25.82 | -13.17 | 10.85 | 15.10 | 0.47 | 0.60 | -17.13 | 0.63 | reproducible_from_shipped_nav | us/baselines/combined/sp100_comparison.csv |
 | S&P 100 | DSR | 64.45 | 25.46 | 24.99 | 35.18 | 0.68 | 0.95 | -31.10 | 0.80 | reproducible_from_shipped_nav | us/baselines/combined/sp100_comparison.csv |
 | S&P 100 | MACE | 34.25 | -4.74 | 14.12 | 15.63 | 0.64 | 0.87 | -18.83 | 0.75 | reproducible_from_shipped_nav | us/baselines/combined/sp100_comparison.csv |
 | S&P 100 | ^OEX (benchmark) | 38.99 |  | 15.91 | 16.84 | 0.70 | 0.90 | -19.89 | 0.80 | reproducible_from_shipped_nav | us/baselines/combined/sp100_comparison.csv |
-| NASDAQ | DESQ (ours) | 83.50 | 44.76 | 31.28 | 14.00 | 1.92 | 3.07 | -11.60 | 2.70 | reported_only | PDF p19 Table 6 |
+| NASDAQ | DESQ (ours) | 83.50 | 44.76 | 31.28 | 14.00 | 1.92 | 3.07 | -11.60 | 2.70 | reported_only | Reference snapshot 6 |
 | NASDAQ | DRL Ensemble | 51.60 | 12.85 | 20.51 | 21.97 | 0.76 | 1.04 | -18.95 | 1.08 | reproducible_from_shipped_nav | us/baselines/combined/ndx100_comparison.csv |
 | NASDAQ | DSR | 79.45 | 40.71 | 29.98 | 21.34 | 1.13 | 1.70 | -26.20 | 1.14 | reproducible_from_shipped_nav | us/baselines/combined/ndx100_comparison.csv |
 | NASDAQ | MACE | 40.96 | 2.22 | 16.64 | 25.44 | 0.56 | 0.75 | -26.44 | 0.63 | reproducible_from_shipped_nav | us/baselines/combined/ndx100_comparison.csv |

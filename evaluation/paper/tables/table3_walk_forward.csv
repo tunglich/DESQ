@@ -1,7 +1,7 @@
 fold,float_pct,fundamental_pct,trend_pct,macro_pct,momentum_pct,des_pct,evidence_status,source_reference
-1 (2005-2015),66.5,65.4,66.0,68.7,62.4,68.5,reported_only,PDF p15 Table 3
-2 (2007-2017),64.0,67.6,68.1,65.2,64.6,69.2,reported_only,PDF p15 Table 3
-3 (2009-2019),67.2,65.7,64.3,63.9,66.6,72.3,reported_only,PDF p15 Table 3
-4 (2011-2021),64.8,64.7,65.1,66.1,68.8,70.6,reported_only,PDF p15 Table 3
-5 (2013-2023),62.6,63.0,62.9,62.7,65.5,70.8,reported_only,PDF p15 Table 3
-Holdout (2024-2026Q1),68.2,61.5,67.2,63.5,63.3,71.6,reported_only,PDF p15 Table 3
+1 (2005-2015),66.5,65.4,66.0,68.7,62.4,68.5,reported_only,Reference snapshot 3
+2 (2007-2017),64.0,67.6,68.1,65.2,64.6,69.2,reported_only,Reference snapshot 3
+3 (2009-2019),67.2,65.7,64.3,63.9,66.6,72.3,reported_only,Reference snapshot 3
+4 (2011-2021),64.8,64.7,65.1,66.1,68.8,70.6,reported_only,Reference snapshot 3
+5 (2013-2023),62.6,63.0,62.9,62.7,65.5,70.8,reported_only,Reference snapshot 3
+Holdout (2024-2026Q1),68.2,61.5,67.2,63.5,63.3,71.6,reported_only,Reference snapshot 3

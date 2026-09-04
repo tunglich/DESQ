@@ -15,7 +15,7 @@ import pandas as pd
 
 
 REQUIRED_COLUMNS = ("stock_id", "seed", "validation_return", "checkpoint_path")
-PAPER_SEED_COUNT = 9
+REFERENCE_SEED_COUNT = 9
 
 
 def select_median_agents(candidates: pd.DataFrame,
@@ -34,20 +34,20 @@ def select_median_agents(candidates: pd.DataFrame,
 
     selected = []
     for stock_id, group in frame.groupby("stock_id", sort=True):
-        if len(group) != PAPER_SEED_COUNT or group["seed"].nunique() != PAPER_SEED_COUNT:
+        if len(group) != REFERENCE_SEED_COUNT or group["seed"].nunique() != REFERENCE_SEED_COUNT:
             raise ValueError(
-                f"{stock_id}: expected exactly {PAPER_SEED_COUNT} unique seeds, "
+                f"{stock_id}: expected exactly {REFERENCE_SEED_COUNT} unique seeds, "
                 f"got {len(group)} rows/{group['seed'].nunique()} unique")
         ordered = group.sort_values(["validation_return", "seed"], kind="stable")
-        row = ordered.iloc[PAPER_SEED_COUNT // 2].copy()
+        row = ordered.iloc[REFERENCE_SEED_COUNT // 2].copy()
         checkpoint = Path(str(row["checkpoint_path"]))
         if manifest_dir is not None and not checkpoint.is_absolute():
             checkpoint = manifest_dir / checkpoint
         if manifest_dir is not None and not checkpoint.is_file():
             raise FileNotFoundError(checkpoint)
         row["checkpoint_path"] = checkpoint.as_posix()
-        row["rank_of_nine"] = PAPER_SEED_COUNT // 2 + 1
-        row["candidate_count"] = PAPER_SEED_COUNT
+        row["rank_of_nine"] = REFERENCE_SEED_COUNT // 2 + 1
+        row["candidate_count"] = REFERENCE_SEED_COUNT
         selected.append(row)
     return pd.DataFrame(selected).reset_index(drop=True)
 

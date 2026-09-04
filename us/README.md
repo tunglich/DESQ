@@ -1,12 +1,12 @@
 # DESQ US evaluation: Dow 30 / S&P 100 / NASDAQ 100
 
-The revised paper applies the same four-stage architecture to three U.S.
+The same four-stage architecture is applied to three U.S.
 universes: Attention specialists, Dynamic Flooding, probability-valued
 KNORA-E aggregation, and Signal-Conditioned Double DQN execution.
 
-## Current-paper results
+## Evaluation results
 
-Table 6 reports the sealed 2024-01-02 to 2026-03-31 evaluation:
+The reference bundle records the sealed 2024-01-02 to 2026-03-31 evaluation:
 
 | Universe | DESQ DDQN return | Benchmark return | Excess return | Sharpe | Max drawdown |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -15,13 +15,13 @@ Table 6 reports the sealed 2024-01-02 to 2026-03-31 evaluation:
 | NASDAQ 100 | **83.50%** | 38.74% | 44.76 pp | 1.92 | -11.60% |
 
 The complete peer-method comparison, including annualized return, volatility,
-Sortino, Calmar, DSR, DRL Ensemble, and MACE rows, is published in:
+Sortino, Calmar, DSR, DRL Ensemble, and MACE rows, is available in:
 
 - [Table 6 CSV](../evaluation/paper/tables/table6_cross_market.csv)
 - [Table 6 Markdown](../evaluation/paper/tables/table6_cross_market.md)
 - [Table 6 LaTeX](../evaluation/paper/tables/table6_cross_market.tex)
 
-The DESQ rows are deterministic transcriptions of the authoritative paper and
+The DESQ rows are deterministic transcriptions of the reference results and
 remain `reported_only`: matching DDQN checkpoints, selected nine-seed manifests,
 action paths, and NAV series are not shipped. Peer and benchmark rows retain
 their independent shipped-NAV audits.
@@ -36,9 +36,9 @@ running P&L, then chooses `Skip`, `Buy`, or `Close`.
 The executable DDQN implementation and nine-agent median-selection protocol
 are shared with the Taiwan workflow under [dqn/](../dqn/). The complete
 seven-stage supervised training flow is shown in the root
-[Appendix B Figure B1](../docs/training_pipeline.png).
+[training-flow diagram](../docs/training_pipeline.png).
 
-## Rebuild current-paper tables
+## Rebuild evaluation tables
 
 ```bash
 python evaluation/paper/generate_tables.py

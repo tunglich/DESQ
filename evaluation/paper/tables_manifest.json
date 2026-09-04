@@ -8,7 +8,7 @@
       },
       "rows": 51,
       "source": "evaluation/paper/sources/table10_top50_flooding_reported.csv",
-      "source_sha256": "9336061f343fea4b4046025755b3cd0bb1c951c21af7b4865bff773831f99162",
+      "source_sha256": "3594512090f236e7eb7633a8021bf442265635739f075307fbb0863105c64d4b",
       "title": "Per-stock OOS returns and flooding ablations"
     },
     "3": {
@@ -17,7 +17,7 @@
       },
       "rows": 6,
       "source": "evaluation/paper/sources/table3_walk_forward_reported.csv",
-      "source_sha256": "e61004b8430604e5f65d2abb0970ef1e02de180aa52813ada9f73693a470b88c",
+      "source_sha256": "a2996993325d3f021e6840a94a43edbe17385fe532c4ba55d29904d9c59495f6",
       "title": "Walk-forward validation precision"
     },
     "4": {
@@ -26,7 +26,7 @@
       },
       "rows": 7,
       "source": "evaluation/paper/sources/table4_module_ablation_reported.csv",
-      "source_sha256": "a9afd974fe31e934feac31e4256d2f9d036c86230ba279c57b6397523de5d26a",
+      "source_sha256": "87e35a75d2c0acc3932c9eb4ecf0b32800b536094af4e7e80fe2b047270ce6cb",
       "title": "Module ablation on the TWSE Top-50"
     },
     "5": {
@@ -35,7 +35,7 @@
       },
       "rows": 6,
       "source": "evaluation/paper/sources/table5_horizon_reported.csv",
-      "source_sha256": "bbb853c84c399b6e23c109d1af6cf5795854ddfe61082e9f3e7710f9c70f1ca0",
+      "source_sha256": "0b9b1e336de8524d9a985551580491d7927b3fc6da7b0b914b79ff957b99f0b0",
       "title": "Signal-horizon sensitivity"
     },
     "6": {
@@ -45,7 +45,7 @@
       },
       "rows": 15,
       "source": "evaluation/paper/sources/table6_cross_market_reported.csv",
-      "source_sha256": "622b2d24c83f39e94285ae2dc89d60968dfd71e0d4973019b326c9cad9d77931",
+      "source_sha256": "8fa5118497d50c64162b497c73ade8a8a04af5d4933fa785092e36583a366149",
       "title": "Cross-market portfolio back-test statistics"
     },
     "7": {
@@ -55,7 +55,7 @@
       },
       "rows": 9,
       "source": "evaluation/paper/sources/table7_uncertainty_reported.csv",
-      "source_sha256": "54e0c662e88ace96d6920c76cdc97a645605b2d67938567993c6e1023ceec96e",
+      "source_sha256": "8db5e322c8eb312f5123cf87cd676f36d199ec5cf80e3d1eedd6871031425130",
       "title": "Uncertainty and statistical reliability"
     },
     "8": {
@@ -64,7 +64,7 @@
       },
       "rows": 4,
       "source": "evaluation/paper/sources/table8_regime_reported.csv",
-      "source_sha256": "4e520c034ac31cbfd05923aa1d01ea2929a8f11bc016d1c4353b74aecc0cfd46",
+      "source_sha256": "22339d8defef4edce916cf8a5381e70534ee30581f2aba3d05ea8a7f8c4d10af",
       "title": "Regime-conditional performance"
     },
     "9": {

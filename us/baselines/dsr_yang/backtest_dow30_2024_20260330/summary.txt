@@ -1,4 +1,4 @@
-Yang 2018 IEEE DSR — Dow 30 reproduction
+Yang 2018 DSR — Dow 30 reproduction
 Trade period: 2024-01-02 ~ 2026-03-30
 Universe: 30 candidates → kept 30 in panel
 Rolling: 16Q train + 4Q validation → predict next 1Q

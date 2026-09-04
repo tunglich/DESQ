@@ -1,11 +1,11 @@
-# Reviewer reproducibility kit
+# Reproducibility kit
 
-This folder gives an IEEE Access reviewer (or any third party) a
+This folder gives any third party a
 **10-minute, no-proprietary-data, exit-code-based** falsification path for the
-DESQ paper's central claims.
+DESQ pipeline's central results.
 
 Nothing in here downloads a Cmoney API key or asks for the FRED tokens the
-authors used. Every input a reviewer needs is either (a) already shipped in
+original experiments used. Every required input is either (a) already shipped in
 `prices/`, `features/`, `tw50_top50.csv`, or (b) publicly fetchable from
 Yahoo Finance in one command.
 
@@ -39,7 +39,7 @@ python reproducibility/hash_shipped.py
 
 # 3. end-to-end smoke (Stage 1 -> 2 -> 3, seed=42)
 DESQ_SEED=42 make smoke-oof STOCK=2330
-# expect: cum_model in [0.17, 0.77], stock buy-hold = 2.002 (deterministic)
+# expect: cum_model in [1.635, 1.735], stock buy-hold = 2.002 (deterministic)
 
 # 4. seed variance (3 seeds; ~15 min CPU because rerun of Stage 3 only)
 make seed-sweep STOCK=2330 SWEEP_SEEDS=42,123,456
@@ -62,13 +62,13 @@ $env:DESQ_SEED = '42'
 ## What a FAIL means
 
 - `check_manifest.py` FAIL — a shipped `features/*.csv`, `prices/*.csv`, or
-  `tw50_top50.csv` was edited after publication. The CI badge on the main
+  `tw50_top50.csv` was edited after the manifest was recorded. The CI badge on the main
   README turns red the moment this happens.
 - `verify_public_prices.py` FAIL — the shipped `prices/*.csv` was edited
-  after publication. Falsifies the OHLCV inputs directly.
+  after the manifest was recorded. Falsifies the OHLCV inputs directly.
 - Stage 3 `total_ret_stock` ≠ 2.002 — the test window shifted; a data
   pipeline change slipped in. `n_test_days ≠ 540` has the same meaning.
-- Stage 3 `total_ret_model` outside `[0.17, 0.77]` for seed=42 — either
+- Stage 3 `total_ret_model` outside `[1.635, 1.735]` for seed=42 — either
   the seed threading in Stage 1/2 broke, or a stochastic layer added
   new randomness. Reproduce with `make seed-sweep` to confirm.
 
@@ -77,7 +77,7 @@ $env:DESQ_SEED = '42'
 - Correctness of the Cmoney-derived fundamental features. Those are
   proprietary. The fingerprint check only proves the shipped CSVs were
   not tampered with after commit HEAD; it does not audit the values
-  themselves. A separate ablation in the paper (aspect drop-in) is the
+  themselves. A separate aspect drop-in ablation is the
   argument that fundamental features contribute non-trivially and thus
   are not padding.
 - Generality to non-TW50 universes. The 50-stock focus is a scope

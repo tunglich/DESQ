@@ -1,6 +1,6 @@
-"""Revised-paper rolling walk-forward CV for TW-DDQN training.
+"""Reference rolling walk-forward CV for TW-DDQN training.
 
-Builds the five dated pre-2024 windows reported in Table 3. Within each
+Builds five dated pre-2024 windows. Within each
 window, the first 80% is the training side and the final 20% is validation.
 The final training anchors are removed so the 20-day label horizon plus the
 30-trading-day purge cannot overlap validation. The post-2024 test window is
@@ -30,7 +30,7 @@ TEST_START = pd.Timestamp("2024-01-01")
 N_FOLDS = 5
 LABEL_HORIZON = 20
 PURGE_GAP = 30
-PAPER_WINDOWS = (
+REFERENCE_WINDOWS = (
     (pd.Timestamp("2005-01-01"), pd.Timestamp("2015-12-31")),
     (pd.Timestamp("2007-01-01"), pd.Timestamp("2017-12-31")),
     (pd.Timestamp("2009-01-01"), pd.Timestamp("2019-12-31")),
@@ -71,17 +71,17 @@ def load_prefiltered(csv_path: Path, test_start: pd.Timestamp = TEST_START) -> p
 
 
 def split_folds(df: pd.DataFrame, n_folds: int = N_FOLDS) -> list[tuple[pd.DataFrame, pd.DataFrame]]:
-    """Return paper rolling-window ``(train, validation)`` pairs."""
+    """Return reference rolling-window ``(train, validation)`` pairs."""
     if n_folds != N_FOLDS:
-        raise ValueError(f"The revised-paper protocol requires {N_FOLDS} folds")
+        raise ValueError(f"The reference protocol requires {N_FOLDS} folds")
 
     folds = []
-    for fold_id, (start, end) in enumerate(PAPER_WINDOWS, start=1):
+    for fold_id, (start, end) in enumerate(REFERENCE_WINDOWS, start=1):
         window = df.loc[df["<DATE>"].between(start, end)].reset_index(drop=True)
         if len(window) < 100:
             raise RuntimeError(
                 f"Fold {fold_id} ({start.year}-{end.year}) has only {len(window)} rows; "
-                "the paper protocol requires full pre-2024 DES history"
+                "the reference protocol requires full pre-2024 DES history"
             )
         validation_start = int(np.floor(len(window) * 0.8))
         train_stop = validation_start - LABEL_HORIZON - PURGE_GAP + 1

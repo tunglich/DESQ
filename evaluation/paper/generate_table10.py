@@ -1,4 +1,4 @@
-"""Generate revised-paper Appendix A Table A1 from shipped feature CSV headers."""
+"""Generate the feature-taxonomy table from shipped CSV headers."""
 from __future__ import annotations
 
 import argparse
@@ -35,7 +35,7 @@ def inventory(feature_dir: Path = FEATURE_DIR) -> tuple[
         list[dict[str, str | int]], list[dict[str, str]]]:
     rows: list[dict[str, str | int]] = []
     drift_rows: list[dict[str, str]] = []
-    for paper_group, file_prefix, expected_count, description in GROUPS:
+    for display_group, file_prefix, expected_count, description in GROUPS:
         paths = sorted(feature_dir.glob(f"{file_prefix}_*.csv"))
         if not paths:
             raise FileNotFoundError(f"no feature files for {file_prefix} in {feature_dir}")
@@ -52,20 +52,20 @@ def inventory(feature_dir: Path = FEATURE_DIR) -> tuple[
             missing = [name for name in canonical if name not in columns]
             if extras or missing:
                 drift_rows.append({
-                    "feature_group": paper_group,
+                    "feature_group": display_group,
                     "source_file": path.name,
                     "extra_features": ", ".join(extras),
                     "missing_features": ", ".join(missing),
                 })
         rows.append({
-            "feature_group": paper_group,
+            "feature_group": display_group,
             "file_prefix": file_prefix,
             "feature_count": expected_count,
             "features": ", ".join(canonical),
             "description": description,
             "source_file_count": len(paths),
             "evidence_status": "reproduced_with_schema_drift" if any(
-                drift["feature_group"] == paper_group for drift in drift_rows
+                drift["feature_group"] == display_group for drift in drift_rows
             ) else "reproduced",
         })
     if sum(int(row["feature_count"]) for row in rows) != 78:

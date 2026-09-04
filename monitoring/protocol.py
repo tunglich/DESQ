@@ -53,7 +53,7 @@ class ProtocolEvaluation:
     current_batch_id: str
     decision: DecisionReport
     candidate_plan: CandidatePlan
-    paper_claim_scope: str = "Appendix F monitoring trigger"
+    paper_claim_scope: str = "reference monitoring trigger"
     update_policy_scope: str = "repository operational policy"
     schema_version: str = "1.0"
 
@@ -165,7 +165,7 @@ def evaluate_batches(current: DiagnosticBatch, previous: DiagnosticBatch,
                      recalibration_status: str = "not_evaluated") -> ProtocolEvaluation:
     for name, batch in (("current", current), ("previous", previous)):
         if batch.paper_contract_hash != contract_hash:
-            raise ValueError(f"{name} batch paper contract hash does not match active contract")
+            raise ValueError(f"{name} batch reference contract hash does not match active contract")
         if batch.policy_hash != policy_hash:
             raise ValueError(f"{name} batch policy hash does not match active policy")
     if date.fromisoformat(previous.observation_end) >= date.fromisoformat(current.observation_start):

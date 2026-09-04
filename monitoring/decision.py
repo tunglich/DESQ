@@ -1,4 +1,4 @@
-"""Appendix-F alarms plus repository-defined update planning policy."""
+"""Reference alarms plus repository-defined update planning policy."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -74,8 +74,8 @@ def decide_stock(current: DiagnosticWindow, previous: DiagnosticWindow,
     previous_alarms = compute_alarms(previous, policy)
     triggered = len(current_alarms) >= 2 and len(previous_alarms) >= 2
     groups = current.affected_groups if triggered else ()
-    reason = ("Appendix F trigger: at least two alarms fired in adjacent mature windows"
-              if triggered else "Appendix F mature-window trigger did not fire")
+    reason = ("Reference trigger: at least two alarms fired in adjacent mature windows"
+              if triggered else "Reference mature-window trigger did not fire")
     return StockDecision(current.stock_id, True, current_alarms, previous_alarms,
                          triggered, groups, reason)
 

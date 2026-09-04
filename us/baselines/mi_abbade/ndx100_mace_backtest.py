@@ -6,7 +6,7 @@ We reuse the five SB3 agents already trained inside our FinRL fork
 2024-01-02 to 2026-03-30 under **two cost models**:
 
     * Baseline    : flat 10 bps buy + 10 bps sell (matches training)
-    * AC (paper)  : Almgren-Chriss non-linear impact with permanent-impact
+    * AC          : Almgren-Chriss non-linear impact with permanent-impact
                     exponential decay (τ½ = 5 days) — see env_mace.py.
 
 For each agent × cost-model we compute the daily portfolio-value curve,
@@ -17,7 +17,7 @@ Outputs (under baselines/mi_abbade/backtest_2024_20260330/):
     equity_<agent>_<cost>.csv     ...  daily portfolio equity per config
     metrics.csv                   ...  summary table (return, Sharpe, MDD, cost)
     daily_costs_<agent>_<cost>.csv .. trading cost / POV / turnover per day
-    paper_vs_des.png              ...  DES vs best AC agent(s) vs QQEW / QQQ
+    baseline_vs_des.png           ...  DES vs best AC agent(s) vs QQEW / QQQ
     baseline_vs_ac.png            ...  same 5 agents under baseline vs AC
     summary.txt                   ...  text summary
 """
@@ -66,7 +66,7 @@ INDICATORS = ["macd", "boll_ub", "boll_lb", "rsi_30",
 BASELINE_BUY_COST = 0.001   # 10 bps
 BASELINE_SELL_COST = 0.001  # 10 bps
 
-# AC params (paper defaults, Section II-B/C)
+# AC reference parameters.
 AC_ALPHA = 0.5
 AC_BETA = 1.0
 AC_SPREAD_BPS = 5.0
@@ -346,7 +346,7 @@ def main() -> int:
         ax.plot(best_ac.index, best_ac.values,
                 label=f"{best_ac_agent.upper()} (AC — best OOS Sharpe)",
                 color="#C44E52", linewidth=2.4)
-    # also show optimized-PPO/TD3 style: PPO under baseline (paper's best cell)
+    # Also show optimized-PPO/TD3 style: PPO under the baseline's best cell.
     if ("ppo", "baseline") in results:
         eq_ppo_b = results[("ppo", "baseline")]["equity"]
         ax.plot(eq_ppo_b.index, eq_ppo_b.values,
@@ -363,13 +363,13 @@ def main() -> int:
                     linewidth=1.4, linestyle=":")
     ax.axhline(INITIAL_AMOUNT, color="grey", linewidth=0.8,
                linestyle="--", label="Initial $1M")
-    ax.set_title(f"NDX 100 — Paper (Abbade & Costa 2026 MACE) vs Ours (DES)   "
+    ax.set_title(f"NDX 100 — Abbade & Costa 2026 MACE vs Ours (DES)   "
                  f"{TRADE_START.date()} ~ {TRADE_END.date()}")
     ax.set_xlabel("Date"); ax.set_ylabel("Portfolio value ($)")
     ax.legend(loc="upper left", fontsize=10); ax.grid(True, alpha=0.3)
     plt.xticks(rotation=30); plt.tight_layout()
-    plt.savefig(OUT_DIR / "paper_vs_des.png", dpi=150); plt.close()
-    print(f"[OK] wrote {OUT_DIR / 'paper_vs_des.png'}")
+    plt.savefig(OUT_DIR / "baseline_vs_des.png", dpi=150); plt.close()
+    print(f"[OK] wrote {OUT_DIR / 'baseline_vs_des.png'}")
 
     # --- Summary text ---
     with open(OUT_DIR / "summary.txt", "w") as f:

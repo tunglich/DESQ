@@ -59,7 +59,7 @@ class DecisionTest(unittest.TestCase):
         report = decide([exact], [exact], self.policy)
         self.assertEqual(report.stock_decisions[0].current_alarms, ())
 
-    def test_paper_trigger_uses_five_named_alarm_types(self) -> None:
+    def test_reference_trigger_uses_five_named_alarm_types(self) -> None:
         diagnostic_only = DiagnosticWindow("2330", 40, 0.01, 0.50, 1.0, 1.0,
                                            0.1, 0.2, 1.0, 0.1, ("macro",))
         report = decide([diagnostic_only], [diagnostic_only], self.policy)
