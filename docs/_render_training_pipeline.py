@@ -21,21 +21,23 @@ CODE = "#174f78"
 FONT_SCALE = 2.0
 
 
-def _box(ax, x: float, y: float, width: float, height: float, title: str,
-         body: str, code: str, face: str) -> None:
+def _box(ax, x: float, y: float, width: float, height: float, number: str,
+         title: str, body: str, code: str, face: str) -> None:
     ax.add_patch(FancyBboxPatch(
         (x, y), width, height,
         boxstyle="round,pad=0.025,rounding_size=0.06",
         linewidth=1.25, edgecolor=INK, facecolor=face,
     ))
-    ax.text(x + width / 2, y + height * 0.79, title, ha="center", va="center",
+    ax.text(x + width / 2, y + height * 0.89, number, ha="center", va="center",
+            fontsize=8.0 * FONT_SCALE, fontweight="bold", color=INK)
+    ax.text(x + width / 2, y + height * 0.77, title, ha="center", va="center",
             fontsize=9.7 * FONT_SCALE, fontweight="bold", color=INK,
-            linespacing=1.0)
-    ax.text(x + width / 2, y + height * 0.45, body, ha="center", va="center",
-            fontsize=8.2 * FONT_SCALE, color=INK, linespacing=1.05)
-    ax.text(x + width / 2, y + height * 0.11, code, ha="center", va="center",
+            linespacing=0.95)
+    ax.text(x + width / 2, y + height * 0.43, body, ha="center", va="center",
+            fontsize=8.2 * FONT_SCALE, color=INK, linespacing=1.12)
+    ax.text(x + width / 2, y + height * 0.10, code, ha="center", va="center",
             fontsize=7.3 * FONT_SCALE, color=CODE, family="monospace",
-            linespacing=1.0)
+            linespacing=1.10)
 
 
 def _arrow(ax, start: tuple[float, float], end: tuple[float, float], *,
@@ -66,18 +68,18 @@ def main() -> None:
             "Revised paper Figure 4: supervised forecasting, execution, and sealed maintenance",
             ha="center", va="center", fontsize=9.5 * FONT_SCALE, color=INK)
 
-    box_y, box_w, box_h, gap = 3.95, 2.18, 3.65, 0.34
+    box_y, box_w, box_h, gap = 4.10, 2.18, 3.50, 0.34
     starts = [0.30 + index * (box_w + gap) for index in range(5)]
     stages = [
-        ("1\nData\nProcessing", "Causal alignment,\nlabels, and frozen\npre-2024 splits",
+        ("1", "Data\nProcessing", "Causal alignment,\nlabels, and frozen\npre-2024 splits",
          "features/ +\nprices/", GRAY),
-        ("2\nFeature\nTransform", "130 candidates ->\n78 features\n5 economic groups",
+        ("2", "Feature\nTransform", "130 candidates ->\n78 features\n5 economic groups",
          "fund. | trend\nmomentum | float\nmacro", BLUE),
-        ("3\nSpecialist\nTraining", "5 causal Transformers\nper stock\nAutoML + Dynamic\nFlooding\nwalk-forward\nvalidation",
+        ("3", "Specialist\nTraining", "5 causal\nTransformers/stock\nAutoML + Dynamic\nFlooding\nwalk-forward\nvalidation",
          "tw50_flood.py\ntw50_dflood.py", GREEN),
-        ("4\nDES\nCombiner", "Local competence\nselection\n20-day directional\nsignal\nKNORA-E, K=30",
+        ("4", "DES\nCombiner", "Local competence\nselection\n20-day directional\nsignal\nKNORA-E, K=30",
          "tw50_des.py", GOLD),
-        ("5\nDDQN\nExecution", "DES signal +\n10 K-bars\nposition + running\nP&L\nSkip / Buy / Close",
+        ("5", "DDQN\nExecution", "DES signal +\n10 K-bars\nposition + running\nP&L\nSkip / Buy / Close",
          "dqn/", RED),
     ]
     for start, stage in zip(starts, stages):
@@ -86,28 +88,30 @@ def main() -> None:
         _arrow(ax, (left + box_w, box_y + box_h / 2),
                (right, box_y + box_h / 2))
 
-    monitor_x, monitor_y, monitor_w, monitor_h = 0.60, 0.62, 12.00, 2.35
+    monitor_x, monitor_y, monitor_w, monitor_h = 0.60, 0.62, 12.00, 2.25
     ax.add_patch(FancyBboxPatch(
         (monitor_x, monitor_y), monitor_w, monitor_h,
         boxstyle="round,pad=0.025,rounding_size=0.06",
         linewidth=1.25, edgecolor=INK, facecolor="#f7f7f7", linestyle="--",
     ))
-    ax.text(monitor_x + 0.28, monitor_y + 1.84,
+    ax.text(monitor_x + 0.28, monitor_y + 1.72,
             "Post-deployment Performance Monitoring\nand Controlled Updates",
             ha="left", va="center", fontsize=10.3 * FONT_SCALE,
             fontweight="bold", color=INK, linespacing=1.0)
-    ax.text(monitor_x + 0.28, monitor_y + 1.08,
+    ax.text(monitor_x + 0.28, monitor_y + 1.02,
             "Two consecutive mature windows  |  six alarms\n"
             "threshold -> DES weights -> Level 2/3",
-            ha="left", va="center", fontsize=8.6 * FONT_SCALE, color=INK)
-    ax.text(monitor_x + 0.28, monitor_y + 0.36,
+            ha="left", va="center", fontsize=8.6 * FONT_SCALE,
+            color=INK, linespacing=1.12)
+    ax.text(monitor_x + 0.28, monitor_y + 0.31,
             "monitoring/  |  sealed validation\n"
             "mature labels only  |  immutable research memory",
             ha="left", va="center", fontsize=7.7 * FONT_SCALE,
-            color=CODE, family="monospace")
-    ax.text(monitor_x + monitor_w - 0.25, monitor_y + 1.84,
+            color=CODE, family="monospace", linespacing=1.12)
+    ax.text(monitor_x + monitor_w - 0.25, monitor_y + 1.72,
             "DISABLED IN\nREPORTED HOLDOUT", ha="right", va="center",
-            fontsize=8.1 * FONT_SCALE, fontweight="bold", color="#8a2f2b")
+            fontsize=8.1 * FONT_SCALE, fontweight="bold", color="#8a2f2b",
+            linespacing=1.0)
 
     _arrow(ax, (starts[4] + box_w / 2, box_y),
            (monitor_x + monitor_w * 0.78, monitor_y + monitor_h),
